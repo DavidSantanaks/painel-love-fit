@@ -7,6 +7,7 @@ Chatbot de WhatsApp da LOVE FIT com painel web. Substitui o bot antigo (Evolutio
 - **Stack**: Next.js 15 (painel + API + webhook + worker em um container), Prisma + PostgreSQL 15, Redis 7, Evolution API v2.3.7, Cloudflare Tunnel.
 
 Especificação em `lovefit-spec/` (constitution, spec, deploy). Plano e tarefas em `plan.md` e `tasks.md`.
+Próximos passos e ideias: `roadmap.md`.
 
 ## Subir
 

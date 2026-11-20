@@ -109,6 +109,27 @@ cd /opt/lovefit-bot
 git clone https://github.com/DavidSantanaks/painel-love-fit.git .</pre>
 <div class="box warn">Repositório público: o <code>.env</code>, os backups e os telefones da blacklist <b>nunca</b> podem ir para o Git (o <code>.gitignore</code> já bloqueia <code>.env</code>, <code>backups/</code> e <code>data/</code>). Antes de cada <code>git push</code>, confira com <code>git status</code>.</div>
 
+<h3>Se o repositório ficar privado</h3>
+<p>O <code>git pull</code> na VPS passa a pedir login. Crie uma <b>deploy key</b> (chave só de leitura, válida só para este repositório):</p>
+<pre>ssh-keygen -t ed25519 -C "lovefit-vps" -f ~/.ssh/lovefit_deploy -N ""
+cat ~/.ssh/lovefit_deploy.pub
+<span class="c"># GitHub → painel-love-fit → Settings → Deploy keys → Add deploy key</span>
+<span class="c"># cole a chave e NÃO marque "Allow write access"</span>
+
+cat >> ~/.ssh/config &lt;&lt;'CFG'
+Host github-lovefit
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/lovefit_deploy
+  IdentitiesOnly yes
+CFG
+chmod 600 ~/.ssh/config
+
+cd ~/painel-love-fit                <span class="c"># ou /opt/lovefit-bot</span>
+git remote set-url origin github-lovefit:DavidSantanaks/painel-love-fit.git
+ssh -T github-lovefit               <span class="c"># responda "yes" na 1ª vez; deve dizer "successfully authenticated"</span>
+git pull                            <span class="c"># deve funcionar sem pedir senha</span></pre>
+
 <h2><span class="n">5</span>Criar o <code>.env</code> com segredos novos</h2>
 <pre>cd /opt/lovefit-bot
 cp .env.example .env
