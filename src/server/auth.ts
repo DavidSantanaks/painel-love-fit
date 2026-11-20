@@ -36,15 +36,18 @@ export type LoginResult = { ok: true } | { ok: false; error: string };
 
 export async function login(email: string, password: string): Promise<LoginResult> {
   const generic: LoginResult = { ok: false, error: "E-mail ou senha incorretos." };
+  // Only FAILED attempts count against the per-IP limit.
   const ipKey = K.login(`ip:${await clientIp()}`);
-  const attempts = await redis().incr(ipKey);
-  if (attempts === 1) await redis().expire(ipKey, LOCK_MINUTES * 60);
-  if (attempts > IP_LIMIT) return { ok: false, error: "Muitas tentativas. Aguarde 15 minutos." };
+  if (Number(await redis().get(ipKey)) >= IP_LIMIT) return { ok: false, error: "Muitas tentativas. Aguarde 15 minutos." };
+  const failIp = async () => {
+    if ((await redis().incr(ipKey)) === 1) await redis().expire(ipKey, LOCK_MINUTES * 60);
+  };
 
   const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
   if (!user) {
     dummyHash ??= await bcrypt.hash("dummy-password", 12);
     await bcrypt.compare(password, dummyHash); // same timing as a real check
+    await failIp();
     return generic;
   }
   if (user.lockedUntil && user.lockedUntil > new Date()) return { ok: false, error: "Conta bloqueada por tentativas. Aguarde 15 minutos." };
@@ -55,6 +58,7 @@ export async function login(email: string, password: string): Promise<LoginResul
       where: { id: user.id },
       data: failed >= MAX_FAILED ? { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) } : { failedLogins: failed },
     });
+    await failIp();
     return generic;
   }
 

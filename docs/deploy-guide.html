@@ -157,6 +157,8 @@ docker ps | grep -Ei 'caddy|livekit'        <span class="c"># o Taverna continua
 <h2><span class="n">8</span>Criar o admin e abrir o painel</h2>
 <pre>docker compose -p lovefit-bot exec app npm run create-admin -- --email voce@exemplo.com --name "Seu Nome"</pre>
 <p>Digite <b>em uma linha só</b>. Se colar com <code>\</code> no meio da linha, o <code>--email</code> não é reconhecido.</p>
+<p>Para escolher a senha em vez de usar a gerada (mínimo 12 caracteres, com maiúscula, minúscula e número):</p>
+<pre>docker compose -p lovefit-bot exec -e PASSWORD='SuaSenhaForte2026' app npm run create-admin -- --email voce@exemplo.com --name "Seu Nome"</pre>
 <p>A senha aparece <b>uma única vez</b>. Guarde no gerenciador de senhas. Para a recepção (acesso a telas, conversas, configurações e simulador, sem WhatsApp e sem blacklist):</p>
 <pre>docker compose -p lovefit-bot exec app npm run create-admin -- --email recepcao@exemplo.com --name "Recepção" --role RECEPTION</pre>
 <p>Rodar o mesmo comando com um e-mail que já existe <b>gera uma senha nova</b> (serve para "esqueci a senha"). Abra <code>https://painellovefit.tavernahub.com.br</code> e entre.</p>
