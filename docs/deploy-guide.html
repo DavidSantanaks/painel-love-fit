@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Deploy LOVE FIT Bot v2</title>
+<style>
+@page { size: A4; margin: 16mm 15mm 18mm; }
+* { box-sizing: border-box; }
+body { font-family: "Inter", "Segoe UI", "DejaVu Sans", sans-serif; color: #1d1e24; font-size: 10.2pt; line-height: 1.5; margin: 0; }
+.cover { height: 255mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+.logo { width: 54px; height: 54px; border-radius: 15px; background: #e51a58; color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; margin-bottom: 26px; }
+.cover h1 { font-size: 30pt; line-height: 1.1; margin: 0 0 10px; letter-spacing: -.5px; }
+.cover .sub { font-size: 13pt; color: #5b5e6b; max-width: 140mm; }
+.cover .meta { margin-top: 34px; font-size: 9.5pt; color: #6b6e7c; border-top: 1px solid #e3e3e8; padding-top: 14px; }
+.cover .meta b { color: #1d1e24; }
+h2 { font-size: 15pt; margin: 22px 0 6px; padding-top: 4px; letter-spacing: -.2px; page-break-after: avoid; display: flex; align-items: center; gap: 10px; }
+h2 .n { flex: none; width: 26px; height: 26px; border-radius: 8px; background: #e51a58; color: #fff; font-size: 11pt; display: inline-flex; align-items: center; justify-content: center; }
+h3 { font-size: 11pt; margin: 14px 0 4px; page-break-after: avoid; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 8.8pt; background: #f2f2f5; padding: 1px 4px; border-radius: 4px; }
+pre { font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 8.6pt; background: #16171c; color: #f1f1f4; padding: 9px 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; margin: 6px 0 8px; page-break-inside: avoid; line-height: 1.45; }
+pre .c { color: #8b8fa0; }
+.box { border-radius: 9px; padding: 9px 12px; margin: 8px 0; page-break-inside: avoid; font-size: 9.6pt; }
+.warn { background: #fff6e6; border: 1px solid #f6d69a; }
+.stop { background: #fff0f3; border: 1px solid #f7b8c8; }
+.ok { background: #ecfbf3; border: 1px solid #b5e8cc; }
+.info { background: #f1f5ff; border: 1px solid #c9d6f7; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 9.2pt; page-break-inside: avoid; }
+th { text-align: left; background: #f4f4f7; font-size: 8.4pt; text-transform: uppercase; letter-spacing: .3px; color: #5b5e6b; }
+th, td { border: 1px solid #e3e3e8; padding: 5px 8px; vertical-align: top; }
+.check li { list-style: none; margin-left: -18px; }
+.check li::before { content: "☐  "; color: #e51a58; }
+.toc { columns: 2; font-size: 10pt; margin-top: 8px; }
+.toc div { margin: 3px 0; }
+section { page-break-inside: auto; }
+.pb { page-break-before: always; }
+</style></head><body>
+
+<div class="cover">
+  <div class="logo">♥</div>
+  <h1>Deploy do LOVE FIT Bot v2<br>na VPS Hostinger</h1>
+  <div class="sub">Passo a passo, do repositório no GitHub até a virada do bot antigo, com Cloudflare Tunnel, backup diário e plano de volta.</div>
+  <div class="meta">
+    <b>Painel:</b> https://painellovefit.tavernahub.com.br &nbsp;·&nbsp; <b>Projeto Compose:</b> lovefit-bot &nbsp;·&nbsp; <b>Pasta na VPS:</b> /opt/lovefit-bot<br>
+    <b>Containers:</b> postgres 15.10 · redis 7.4.2 · evolution-api v2.3.7 · app (Next.js) · cloudflared 2025.11.1<br>
+    Versão do guia: novembro de 2026
+  </div>
+</div>
+
+<h2 style="margin-top:0">Antes de tudo: as 4 regras</h2>
+<div class="box stop">
+<ol style="margin:0">
+<li><b>Não mexa no projeto <code>taverna-livekit</code></b> (Caddy e LiveKit). O bot é um projeto separado (<code>-p lovefit-bot</code>), com rede própria, e não sobe outro Caddy.</li>
+<li><b>Nenhuma porta nova é aberta na internet.</b> O painel escuta só em <code>127.0.0.1:3000</code>. O acesso público passa pelo Cloudflare Tunnel, que é uma conexão de saída.</li>
+<li><b>Segredos só no <code>.env</code> da VPS</b>, nunca no GitHub. Isso vale também para os telefones da blacklist e para a chave da Evolution.</li>
+<li><b>Nunca deixe os dois bots ligados no mesmo número</b>: o cliente receberia resposta dobrada.</li>
+</ol></div>
+
+<div class="toc">
+<div>0. Preparar no seu computador</div><div>1. Entrar na VPS</div><div>2. Usuário <code>deploy</code> e SSH seguro</div>
+<div>3. Conferir o que já roda</div><div>4. Baixar o projeto</div><div>5. Criar o <code>.env</code></div>
+<div>6. Túnel no Cloudflare</div><div>7. Subir os containers</div><div>8. Criar o admin e entrar</div>
+<div>9. Cloudflare Access</div><div>10. Configurar o painel</div><div>11. Conectar o WhatsApp e testar</div>
+<div>12. Virada do bot antigo</div><div>13. Backup diário</div><div>14. Atualizar depois</div><div>15. Problemas comuns</div>
+</div>
+
+<h2><span class="n">0</span>Preparar no seu computador</h2>
+<p>O código está em <b>https://github.com/DavidSantanaks/painel-love-fit</b> (público). Para mandar alterações futuras, na pasta do projeto:</p>
+<pre>npm test                       <span class="c"># 48 testes devem passar</span>
+git status                     <span class="c"># .env, backups/ e data/ NÃO podem aparecer</span>
+git add -A && git commit -m "descrição da mudança"
+git push</pre>
+<ul>
+<li>No <b>n8n que está rodando</b>, exporte o workflow vivo e copie a lista de blacklist (6 números, um repetido) para um arquivo seu, <b>fora do repositório</b>. Não use o <code>gym-chatbot-workflow.json</code> antigo da pasta: ele está desatualizado.</li>
+<li>O bot antigo continua ligado no ksserver até o passo 12.</li>
+</ul>
+
+<h2><span class="n">1</span>Entrar na VPS</h2>
+<pre>ssh root@IP-DA-VPS             <span class="c"># o IP está no painel da Hostinger</span></pre>
+
+<h2><span class="n">2</span>Criar o usuário <code>deploy</code> e proteger o SSH</h2>
+<pre>adduser deploy
+usermod -aG docker,sudo deploy
+mkdir -p /home/deploy/.ssh
+cp ~/.ssh/authorized_keys /home/deploy/.ssh/ 2>/dev/null
+chown -R deploy:deploy /home/deploy/.ssh
+chmod 700 /home/deploy/.ssh && chmod 600 /home/deploy/.ssh/authorized_keys</pre>
+<p>Em <b>outro terminal</b>, teste antes de fechar o atual:</p>
+<pre>ssh deploy@IP-DA-VPS
+docker ps                      <span class="c"># precisa listar os containers do Taverna, sem erro de permissão</span>
+sudo -v                        <span class="c"># sudo precisa funcionar ANTES de desligar o root</span></pre>
+<p>Funcionou? Então desligue o login por senha e o login de root:</p>
+<pre>sudo nano /etc/ssh/sshd_config
+<span class="c">#   PasswordAuthentication no</span>
+<span class="c">#   PermitRootLogin no</span>
+sudo systemctl restart ssh</pre>
+<div class="box warn"><b>Não feche o terminal antigo</b> até confirmar que um novo <code>ssh deploy@…</code> entra. <b>Não ative o <code>ufw</code></b> sem checar as portas do LiveKit. Se quiser firewall, use o do painel da Hostinger e libere SSH e as portas que o Taverna já usa. O bot não precisa de nenhuma porta de entrada.</div>
+
+<h2><span class="n">3</span>Conferir o que já está rodando</h2>
+<pre>docker --version && docker compose version     <span class="c"># Compose v2 é obrigatório</span>
+docker ps --format 'table {{.Names}}\t{{.Ports}}'
+ss -tulpn | grep -E ':(80|443|3000|8080)\b'
+free -h && df -h /</pre>
+<p>A porta <code>3000</code> precisa estar livre em <code>127.0.0.1</code>. Se não estiver, use outra no <code>.env</code> (<code>PANEL_PORT=3010</code>). O túnel não depende dessa porta, porque fala com o app pela rede interna.</p>
+
+<h2><span class="n">4</span>Baixar o projeto</h2>
+<p>O repositório é <b>público</b>, então o clone não precisa de chave nem de token:</p>
+<pre>sudo mkdir -p /opt/lovefit-bot && sudo chown deploy:deploy /opt/lovefit-bot
+cd /opt/lovefit-bot
+git clone https://github.com/DavidSantanaks/painel-love-fit.git .</pre>
+<div class="box warn">Repositório público: o <code>.env</code>, os backups e os telefones da blacklist <b>nunca</b> podem ir para o Git (o <code>.gitignore</code> já bloqueia <code>.env</code>, <code>backups/</code> e <code>data/</code>). Antes de cada <code>git push</code>, confira com <code>git status</code>.</div>
+
+<h2><span class="n">5</span>Criar o <code>.env</code> com segredos novos</h2>
+<pre>cd /opt/lovefit-bot
+cp .env.example .env
+for v in AUTHENTICATION_API_KEY POSTGRES_PASSWORD WEBHOOK_TOKEN SESSION_SECRET; do
+  sed -i "s|^$v=.*|$v=$(openssl rand -hex 32)|" .env
+done
+chmod 600 .env
+nano .env                      <span class="c"># confira; TUNNEL_TOKEN vem no passo 6</span></pre>
+<table>
+<tr><th>Variável</th><th>Valor na VPS</th></tr>
+<tr><td><code>COMPOSE_PROFILES</code></td><td><code>tunnel</code> (sobe o cloudflared)</td></tr>
+<tr><td><code>AUTHENTICATION_API_KEY</code></td><td>gerada. <b>Nova</b>: não reaproveite a chave do bot antigo.</td></tr>
+<tr><td><code>POSTGRES_PASSWORD</code>, <code>WEBHOOK_TOKEN</code>, <code>SESSION_SECRET</code></td><td>gerados pelo comando acima</td></tr>
+<tr><td><code>TUNNEL_TOKEN</code></td><td>token do túnel (passo 6)</td></tr>
+<tr><td><code>TIMEZONE</code></td><td><code>America/Sao_Paulo</code></td></tr>
+<tr><td><code>PANEL_PORT</code></td><td><code>3000</code> (só em 127.0.0.1)</td></tr>
+<tr><td><code>RCLONE_REMOTE</code> (opcional)</td><td>destino do backup fora da VPS (passo 13), ex.: <code>gdrive:lovefit-backups</code></td></tr>
+</table>
+<div class="box info">Guarde uma cópia do <code>.env</code> no seu gerenciador de senhas. Sem a <code>POSTGRES_PASSWORD</code>, os backups continuam restauráveis, mas você precisa dela para subir o stack de novo.</div>
+
+<h2><span class="n">6</span>Criar o túnel no Cloudflare</h2>
+<ol>
+<li>Cloudflare → <b>Zero Trust</b> → <b>Networks</b> → <b>Tunnels</b> → <b>Create a tunnel</b> → tipo <b>Cloudflared</b>.</li>
+<li>Nome: <code>lovefit-bot</code>. Na tela de instalação, copie só o <b>token</b> (o texto longo depois de <code>--token</code>) e cole em <code>TUNNEL_TOKEN=</code> no <code>.env</code>. <b>Não</b> rode o comando de instalação que o Cloudflare sugere: o cloudflared já está no compose.</li>
+<li>Aba <b>Public Hostname</b> → <b>Add a public hostname</b>:
+<table><tr><th>Campo</th><th>Valor</th></tr>
+<tr><td>Subdomain</td><td><code>painellovefit</code></td></tr>
+<tr><td>Domain</td><td><code>tavernahub.com.br</code></td></tr>
+<tr><td>Path</td><td>(vazio)</td></tr>
+<tr><td>Service</td><td>Type <code>HTTP</code>, URL <code>app:3000</code></td></tr></table></li>
+<li>Salve. O Cloudflare cria o CNAME sozinho. <b>Não crie registro DNS à mão</b>, e confira em DNS que não existe um <code>painellovefit</code> antigo. O registro <code>lk</code> do LiveKit fica como está.</li>
+</ol>
+
+<h2><span class="n">7</span>Subir os containers</h2>
+<pre>cd /opt/lovefit-bot
+./manage.sh up                 <span class="c"># valida o .env e roda: docker compose -p lovefit-bot up -d --build</span></pre>
+<p>A primeira vez demora de 3 a 6 minutos (build da imagem do app). Depois:</p>
+<pre>docker compose -p lovefit-bot ps            <span class="c"># todos "Up"; app e postgres "(healthy)"</span>
+curl -s http://127.0.0.1:3000/api/health    <span class="c"># {"ok":true}</span>
+docker compose -p lovefit-bot logs app --tail 30
+docker stats --no-stream                    <span class="c"># o bot deve usar cerca de 1 a 2 GB no total</span>
+docker ps | grep -Ei 'caddy|livekit'        <span class="c"># o Taverna continua de pé</span></pre>
+<div class="box ok">No log do <code>app</code> devem aparecer <code>All migrations have been successfully applied</code>, <code>Seed: franquia LOVE FIT criada com as telas iniciais</code> e <code>worker_started</code>. A migração e o seed rodam sozinhos.</div>
+
+<h2><span class="n">8</span>Criar o admin e abrir o painel</h2>
+<pre>docker compose -p lovefit-bot exec app npm run create-admin -- \
+  --email voce@exemplo.com --name "Seu Nome"</pre>
+<p>A senha aparece <b>uma única vez</b>. Guarde no gerenciador de senhas. Para a recepção (acesso a telas, conversas, configurações e simulador, sem WhatsApp e sem blacklist):</p>
+<pre>docker compose -p lovefit-bot exec app npm run create-admin -- \
+  --email recepcao@exemplo.com --name "Recepção" --role RECEPTION</pre>
+<p>Rodar o mesmo comando com um e-mail que já existe <b>gera uma senha nova</b> (serve para "esqueci a senha"). Abra <code>https://painellovefit.tavernahub.com.br</code> e entre.</p>
+<p><b>Sem o túnel, por SSH</b> (plano B para a equipe técnica): <code>ssh -L 3000:localhost:3000 deploy@IP-DA-VPS</code> e abra <code>http://localhost:3000</code>.</p>
+
+<h2><span class="n">9</span>Proteger com Cloudflare Access (recomendado)</h2>
+<p>Zero Trust → <b>Access</b> → <b>Applications</b> → <b>Add an application</b> → <b>Self-hosted</b>:</p>
+<ul>
+<li>Application domain: <code>painellovefit.tavernahub.com.br</code></li>
+<li>Policy: <b>Allow</b> → Include → <b>Emails</b>: o seu e-mail e o de quem usa o painel</li>
+<li>Session duration: 24 h (ou o que preferir)</li>
+</ul>
+<p>Depois disso, o Cloudflare pede um código por e-mail antes de mostrar a tela de login do painel. O webhook da Evolution não é afetado, porque é interno: chamadas ao webhook vindas da internet são recusadas pelo app.</p>
+
+<h2><span class="n">10</span>Configurar o painel (antes de conectar números reais)</h2>
+<ol>
+<li><b>Telas e menus</b>: revise todas as telas. Textos marcados com <code>[EDITAR]</code> precisam ser preenchidos: preço do plano Básico, regras dos planos, chaves Pix de Atalaia e Jardim Santana e link do cadastro. A pré-visualização à direita mostra como fica no WhatsApp.</li>
+<li><b>Blacklist</b> (menu Blacklist): cole os 6 números do n8n vivo, um por linha, com o rótulo "Família". Qualquer formato serve, e a versão com e sem o 9 já é bloqueada. Alternativa por terminal:
+<pre>nano /tmp/bl.txt               <span class="c"># um número por linha</span>
+docker compose -p lovefit-bot exec -T app npm run import-blacklist -- --label "Família" &lt; /tmp/bl.txt
+shred -u /tmp/bl.txt</pre></li>
+<li><b>Configurações → Números de aviso</b>: cadastre o celular de quem atende (nenhum pode estar na blacklist, e o painel recusa se estiver).</li>
+<li><b>Configurações → Comportamento</b>: confira a pausa (60 min), o anti-flood (5 s) e a mensagem fora do expediente.</li>
+<li><b>Simulador</b>: converse com o bot. Teste <code>oi</code>, <code>1</code>, <code>11</code>, <code>2</code>, <code>21</code>, <code>4</code>, <code>5</code>, <code>menu</code> e "Enviar como a recepção".</li>
+</ol>
+
+<h2><span class="n">11</span>Conectar o WhatsApp e testar (com número de teste)</h2>
+<ol>
+<li>Menu <b>WhatsApp</b> → <b>+ Nova instância</b>: nome técnico <code>atalaia</code>, unidade <code>Atalaia</code>. Repita com <code>santana</code> / <code>Jardim Santana</code>.</li>
+<li><b>Unidade e horários</b>: cadastre o horário de cada unidade (vira <code>{{horarios}}</code> e controla o "fora do expediente").</li>
+<li><b>Primeiro com um chip de teste</b>: clique em <b>Conectar (QR Code)</b> e, no celular de teste, vá em WhatsApp → Aparelhos conectados → Conectar aparelho. O status muda para <b>Conectado</b>.</li>
+<li>Em Configurações, clique em <b>Enviar teste</b> nos números de aviso.</li>
+<li>De outro celular, mande mensagens para o número de teste e marque:</li>
+</ol>
+<ul class="check">
+<li><code>oi</code> → menu com saudação e nome; o indicador "digitando…" aparece antes</li>
+<li><code>1</code> → planos; <code>11</code> → regras; imagem/PDF chegam (se houver)</li>
+<li><code>5</code> / <code>atendente</code> → contato na fila em <b>Conversas</b> e WhatsApp no número de aviso</li>
+<li>Responder pelo celular da loja → o bot fica mudo com aquele contato; <code>menu</code> reativa</li>
+<li>Duas mensagens em menos de 5 s → uma resposta só</li>
+<li>Mensagem de um número da blacklist → silêncio total (aparece no Log como "blacklist")</li>
+<li><code>docker compose -p lovefit-bot restart app</code> durante uma pausa → continua pausado</li>
+<li>WhatsApp → Desconectar e reconectar pelo QR Code, sem usar o terminal</li>
+</ul>
+<p>Terminado o teste, clique em <b>Desconectar</b> na instância de teste (ou exclua e recrie com o nome definitivo).</p>
+
+<h2><span class="n">12</span>Virada: trocar o bot antigo pelo novo</h2>
+<p>Faça em horário de pouco movimento.</p>
+<ol>
+<li><b>Backup manual</b> na VPS: <code>./scripts/backup.sh</code>.</li>
+<li>No <b>ksserver</b>, pare o bot antigo <b>sem apagar nada</b>: <code>./manage.sh stop</code>.</li>
+<li>Se o número real estiver conectado ao bot antigo, desconecte-o lá (celular → Aparelhos conectados → sair do aparelho antigo).</li>
+<li>No painel novo, <b>Conectar (QR Code)</b> em <code>atalaia</code> e <code>santana</code> com os celulares reais.</li>
+<li>Teste de ponta a ponta com um celular seu: menu, atendente, aviso, pausa.</li>
+<li>Acompanhe por alguns minutos: <code>./manage.sh logs app</code> e o menu <b>Log e auditoria</b>.</li>
+</ol>
+<div class="box warn"><b>Plano de volta</b> (mantenha por 7 dias, sem apagar o stack antigo): <code>docker compose -p lovefit-bot stop</code> na VPS → reconectar os números no bot antigo → <code>./manage.sh start</code> no ksserver.</div>
+
+<h2><span class="n">13</span>Backup diário (obrigatório)</h2>
+<p>O snapshot semanal da Hostinger não basta. O script faz o dump do banco do app, do banco da Evolution (sessões do WhatsApp) e da mídia, e guarda 14 dias em <code>/opt/lovefit-bot/backups</code>.</p>
+<h3>Cópia fora da VPS com rclone (Google Drive, por exemplo)</h3>
+<pre>sudo apt install -y rclone
+rclone config                  <span class="c"># crie um remote chamado "gdrive" (siga o assistente)</span>
+echo 'RCLONE_REMOTE=gdrive:lovefit-backups' >> /opt/lovefit-bot/.env</pre>
+<h3>Agendar (como usuário deploy)</h3>
+<pre>crontab -e
+<span class="c"># adicione a linha:</span>
+30 3 * * * /opt/lovefit-bot/scripts/backup.sh >> /opt/lovefit-bot/backup.log 2>&1</pre>
+<h3>Testar uma restauração antes de confiar</h3>
+<pre>./scripts/backup.sh
+ls backups/                    <span class="c"># ex.: lovefit-20261120-033000.dump</span>
+./scripts/restore.sh 20261120-033000      <span class="c"># pede para digitar RESTAURAR</span></pre>
+<div class="box info">Faça o teste de restauração <b>antes da virada</b> (passo 12), enquanto só existe o número de teste. Em produção, a restauração volta menus, conversas e a sessão do WhatsApp para o momento do backup.</div>
+
+<h2><span class="n">14</span>Atualizar depois</h2>
+<pre>cd /opt/lovefit-bot
+./scripts/backup.sh
+./manage.sh update             <span class="c"># git pull + docker compose up -d --build (migrações rodam sozinhas)</span></pre>
+<p>Mudanças de texto, preço e horário <b>não precisam de deploy</b>: são feitas no painel e valem na hora.</p>
+
+<h2><span class="n">15</span>Se algo der errado</h2>
+<table>
+<tr><th style="width:32%">Sintoma</th><th>Onde olhar / o que fazer</th></tr>
+<tr><td>Painel não abre (erro 1033/502 do Cloudflare)</td><td><code>docker compose -p lovefit-bot logs cloudflared</code>. Confira o <code>TUNNEL_TOKEN</code>, <code>COMPOSE_PROFILES=tunnel</code> e o Public Hostname apontando para <code>http://app:3000</code>.</td></tr>
+<tr><td>Bot não responde</td><td>Painel → WhatsApp: está "Conectado"? O aviso "Webhook desligado" aparece? Clique em <b>Reconfigurar webhook</b>. Depois: <code>./manage.sh logs app</code> e <code>./manage.sh logs evolution-api</code>.</td></tr>
+<tr><td>Cliente específico não recebe</td><td>Log e auditoria: "blacklist", "anti-flood", "pausado" ou "sem telefone resolvido" (contato <code>@lid</code>, ver Configurações).</td></tr>
+<tr><td>WhatsApp desconectou</td><td>Painel → WhatsApp → <b>Conectar (QR Code)</b>. Se não gerar, clique em <b>Reiniciar</b> e tente de novo.</td></tr>
+<tr><td>Esqueci a senha do painel</td><td>Rode o <code>create-admin</code> de novo com o mesmo e-mail: gera uma senha nova.</td></tr>
+<tr><td>"Muitas tentativas"</td><td>Bloqueio de 15 minutos após 5 erros (por conta) ou 20 (por IP). Aguarde.</td></tr>
+<tr><td>Container reiniciando</td><td><code>docker compose -p lovefit-bot ps</code> e <code>logs &lt;serviço&gt;</code>. No app, "Invalid environment" significa variável faltando no <code>.env</code>.</td></tr>
+<tr><td>Disco cheio</td><td><code>df -h</code>, <code>du -sh /opt/lovefit-bot/backups</code>, <code>docker system df</code>. Logs dos containers já são rotacionados (3 × 10 MB).</td></tr>
+<tr><td>Voltar ao bot antigo</td><td><code>docker compose -p lovefit-bot stop</code> na VPS e <code>./manage.sh start</code> no ksserver.</td></tr>
+</table>
+
+<h3>Comandos do dia a dia</h3>
+<table>
+<tr><th>O quê</th><th>Comando (em /opt/lovefit-bot)</th></tr>
+<tr><td>Status e uso de memória</td><td><code>./manage.sh status</code></td></tr>
+<tr><td>Logs</td><td><code>./manage.sh logs app</code> · <code>./manage.sh logs evolution-api</code></td></tr>
+<tr><td>Reiniciar só o app</td><td><code>./manage.sh restart</code></td></tr>
+<tr><td>Parar / iniciar tudo</td><td><code>./manage.sh stop</code> · <code>./manage.sh start</code></td></tr>
+<tr><td>Nova franquia (cópia das telas)</td><td><code>docker compose -p lovefit-bot exec app npm run create-franchise -- --name "LOVE FIT X" --slug x</code></td></tr>
+</table>
+</body></html>

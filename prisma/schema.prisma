@@ -1,0 +1,291 @@
+// LOVE FIT Bot v2 — data model.
+// Every business table carries franchiseId (spec 6.0). Message text from customers is never stored (RNF-07).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PLATFORM_ADMIN
+  ADMIN
+  RECEPTION
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  DOCUMENT
+}
+
+enum NodeAction {
+  NONE
+  CALL_HUMAN
+  PAUSE
+}
+
+enum OptionAction {
+  GO_TO
+  CALL_HUMAN
+  PAUSE
+  NONE
+}
+
+enum ContactStatus {
+  ACTIVE
+  PAUSED
+  WAITING_HUMAN
+}
+
+enum Direction {
+  IN
+  OUT
+}
+
+model Franchise {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  isTemplate Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  users      User[]
+  instances  Instance[]
+  nodes      Node[]
+  options    Option[]
+  media      Media[]
+  settings   Settings?
+  blacklist  BlacklistEntry[]
+  notify     NotifyNumber[]
+  contacts   Contact[]
+  handoffs   HandoffRequest[]
+  logs       MessageLog[]
+  audits     AuditLog[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  franchiseId  String?
+  franchise    Franchise? @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         Role       @default(RECEPTION)
+  failedLogins Int        @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime   @default(now())
+  sessions     Session[]
+
+  @@index([franchiseId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// A WhatsApp number (Evolution API instance). Name is global in Evolution.
+model Instance {
+  id          String   @id @default(cuid())
+  franchiseId String
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  name        String   @unique
+  unitName    String
+  /// [{ weekday: 0-6, open: "06:00", close: "22:00" }] — empty array = no hours configured
+  hours       Json     @default("[]")
+  createdAt   DateTime @default(now())
+
+  contacts    Contact[]
+
+  @@index([franchiseId])
+}
+
+/// "Tela": one bot response.
+model Node {
+  id            String     @id @default(cuid())
+  franchiseId   String
+  franchise     Franchise  @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  key           String
+  title         String
+  isMain        Boolean    @default(false)
+  showOptions   Boolean    @default(true)
+  onEnterAction NodeAction @default(NONE)
+  pauseMinutes  Int?
+  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime   @default(now())
+
+  messages      NodeMessage[]
+  options       Option[]      @relation("OptionsOfNode")
+  incoming      Option[]      @relation("OptionTarget")
+
+  @@unique([franchiseId, key])
+  @@index([franchiseId])
+}
+
+model NodeMessage {
+  id          String      @id @default(cuid())
+  franchiseId String
+  nodeId      String
+  node        Node        @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  order       Int
+  type        MessageType @default(TEXT)
+  text        String      @default("")
+  mediaId     String?
+  media       Media?      @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([nodeId])
+  @@index([franchiseId])
+}
+
+model Option {
+  id           String       @id @default(cuid())
+  franchiseId  String
+  franchise    Franchise    @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  nodeId       String
+  node         Node         @relation("OptionsOfNode", fields: [nodeId], references: [id], onDelete: Cascade)
+  order        Int
+  label        String
+  triggers     String[]
+  action       OptionAction @default(GO_TO)
+  targetNodeId String?
+  target       Node?        @relation("OptionTarget", fields: [targetNodeId], references: [id], onDelete: SetNull)
+  pauseMinutes Int?
+
+  @@index([nodeId])
+  @@index([franchiseId])
+}
+
+model Media {
+  id          String   @id @default(cuid())
+  franchiseId String
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  fileName    String
+  mimeType    String
+  size        Int
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  messages    NodeMessage[]
+
+  @@index([franchiseId])
+}
+
+model Settings {
+  franchiseId           String    @id
+  franchise             Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  pauseMinutes          Int       @default(60)
+  floodWindowSeconds    Int       @default(5)
+  typingDelayMs         Int       @default(1500)
+  betweenMessagesMs     Int       @default(800)
+  reactivationWords     String[]  @default(["0", "menu", "#menu", "voltar"])
+  staffCommands         String[]  @default(["#pausa", "#parar", "#silenciar"])
+  notifyCooldownMinutes Int       @default(30)
+  retentionDays         Int       @default(90)
+  outOfHoursMessage     String    @default("")
+  respondUnresolvedLid  Boolean   @default(false)
+  updatedAt             DateTime  @updatedAt
+}
+
+model BlacklistEntry {
+  id          String   @id @default(cuid())
+  franchiseId String
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  phone       String
+  label       String   @default("")
+  note        String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@unique([franchiseId, phone])
+}
+
+model NotifyNumber {
+  id          String   @id @default(cuid())
+  franchiseId String
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  phone       String
+  label       String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@unique([franchiseId, phone])
+}
+
+model Contact {
+  id             String        @id @default(cuid())
+  franchiseId    String
+  franchise      Franchise     @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  instanceId     String
+  instance       Instance      @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  remoteJid      String
+  phone          String?
+  pushName       String        @default("")
+  currentNodeKey String?
+  status         ContactStatus @default(ACTIVE)
+  pausedUntil    DateTime?
+  lastInboundAt  DateTime?
+  lastNotifiedAt DateTime?
+  updatedAt      DateTime      @updatedAt
+  createdAt      DateTime      @default(now())
+
+  handoffs       HandoffRequest[]
+
+  @@unique([instanceId, remoteJid])
+  @@index([franchiseId, updatedAt])
+}
+
+model HandoffRequest {
+  id          String    @id @default(cuid())
+  franchiseId String
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  reason      String
+  notified    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?
+
+  @@index([franchiseId, resolvedAt])
+}
+
+/// Metadata only — never message text (RNF-07).
+model MessageLog {
+  id           String    @id @default(cuid())
+  franchiseId  String
+  franchise    Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  instanceName String
+  contactPhone String?
+  direction    Direction
+  decision     String
+  nodeKey      String?
+  optionLabel  String?
+  result       String?
+  createdAt    DateTime  @default(now())
+
+  @@index([franchiseId, createdAt])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  franchiseId String
+  franchise   Franchise @relation(fields: [franchiseId], references: [id], onDelete: Cascade)
+  userId      String?
+  userEmail   String
+  entity      String
+  entityName  String
+  action      String
+  createdAt   DateTime  @default(now())
+
+  @@index([franchiseId, createdAt])
+}

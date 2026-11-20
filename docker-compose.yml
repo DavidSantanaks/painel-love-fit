@@ -1,0 +1,137 @@
+# LOVE FIT Bot v2 — isolated Compose project. Does not touch any other project on the host
+# (e.g. taverna-livekit): own network, no Caddy, no public ports. Only the panel is published,
+# and only on 127.0.0.1. Public access goes through the Cloudflare Tunnel (cloudflared).
+name: lovefit-bot
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  postgres:
+    image: postgres:15.10-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: lovefit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: lovefit
+      TZ: ${TIMEZONE:-America/Sao_Paulo}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sh:/docker-entrypoint-initdb.d/10-evolution-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lovefit -d lovefit"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [gym-network]
+    logging: *logging
+
+  redis:
+    image: redis:7.4.2-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [gym-network]
+    logging: *logging
+
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    restart: always
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      SERVER_TYPE: http
+      SERVER_PORT: "8080"
+      SERVER_URL: http://evolution-api:8080
+      AUTHENTICATION_API_KEY: ${AUTHENTICATION_API_KEY:?defina AUTHENTICATION_API_KEY no .env}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "false"
+      DEL_INSTANCE: "false"
+      LANGUAGE: pt-BR
+      LOG_LEVEL: ERROR,WARN,INFO
+      LOG_COLOR: "false"
+      # Database: Evolution has its own DB in the same Postgres
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://lovefit:${POSTGRES_PASSWORD}@postgres:5432/evolution?schema=public
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_lovefit
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      # Privacy (RNF-07): Evolution does not keep message history either
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      QRCODE_LIMIT: "30"
+      CONFIG_SESSION_PHONE_CLIENT: LOVE FIT
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      TZ: ${TIMEZONE:-America/Sao_Paulo}
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks: [gym-network]
+    logging: *logging
+    # No published port: only the app talks to Evolution, inside gym-network.
+
+  app:
+    build: .
+    image: lovefit-bot-app:local
+    restart: always
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      evolution-api: { condition: service_started }
+    environment:
+      DATABASE_URL: postgresql://lovefit:${POSTGRES_PASSWORD}@postgres:5432/lovefit?schema=public
+      REDIS_URL: redis://redis:6379/1
+      EVOLUTION_API_URL: http://evolution-api:8080
+      AUTHENTICATION_API_KEY: ${AUTHENTICATION_API_KEY}
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:?defina WEBHOOK_TOKEN no .env}
+      APP_INTERNAL_URL: http://app:3000
+      SESSION_SECRET: ${SESSION_SECRET:?defina SESSION_SECRET no .env}
+      TIMEZONE: ${TIMEZONE:-America/Sao_Paulo}
+      TZ: ${TIMEZONE:-America/Sao_Paulo}
+      MEDIA_DIR: /app/data/media
+      MEDIA_MAX_MB: ${MEDIA_MAX_MB:-10}
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+    volumes:
+      - app_media:/app/data/media
+    ports:
+      # Panel only, and only on the loopback interface (RNF-09). Use PANEL_BIND=0.0.0.0 on a LAN-only host.
+      - "${PANEL_BIND:-127.0.0.1}:${PANEL_PORT:-3000}:3000"
+    networks: [gym-network]
+    logging: *logging
+
+  cloudflared:
+    image: cloudflare/cloudflared:2025.11.1
+    restart: always
+    profiles: ["tunnel"]
+    depends_on: [app]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    networks: [gym-network]
+    logging: *logging
+
+networks:
+  gym-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  evolution_instances:
+  app_media:
