@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_HOURS } from "@/engine/seed-content";
 import { ADMIN_ROLES, panelRoute, HttpError } from "@/server/api";
 import { audit } from "@/server/audit";
 import { prisma } from "@/server/db";
@@ -25,7 +26,7 @@ export const POST = panelRoute(
       if (e instanceof EvolutionError && (e.status === 403 || e.status === 409)) await evolution.setWebhook(name);
       else throw new HttpError(502, `Evolution API: ${(e as Error).message}`);
     }
-    const inst = await prisma.instance.create({ data: { franchiseId: ctx.franchiseId, name, unitName } });
+    const inst = await prisma.instance.create({ data: { franchiseId: ctx.franchiseId, name, unitName, hours: DEFAULT_HOURS } });
     await audit(ctx, "instância", `${name} (${unitName})`, "criou");
     return { id: inst.id };
   },

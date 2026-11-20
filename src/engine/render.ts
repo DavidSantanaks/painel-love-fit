@@ -1,6 +1,5 @@
 import type { EngineContext, EngineNode, HoursEntry, OutboundMessage } from "./types";
 
-const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /** Hour, minute and weekday of `now` in the given IANA timezone. */
@@ -38,14 +37,39 @@ export function isOpen(hours: HoursEntry[], now: Date, timezone: string): boolea
   return hours.some((h) => h.weekday === weekday && minutes >= toMinutes(h.open) && minutes < toMinutes(h.close));
 }
 
+const DAY_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+/**
+ * Groups consecutive days with the same hours, in the old bot's style:
+ *   • *Segunda a Sexta:* das 06:00 às 22:00
+ *   • *Sábado:* das 09:00 às 14:00
+ *   • *Domingo:* Fechado
+ */
 export function formatHours(hours: HoursEntry[]): string {
   if (!hours.length) return "Horário não cadastrado.";
-  return WEEK_ORDER.map((d) => {
+  const describe = (d: number) => {
     const slots = hours.filter((h) => h.weekday === d).sort((a, b) => toMinutes(a.open) - toMinutes(b.open));
-    const label = WEEKDAYS[d];
-    if (!slots.length) return `${label}: fechado`;
-    return `${label}: ${slots.map((s) => `${s.open} às ${s.close}`).join(" e ")}`;
-  }).join("\n");
+    return slots.length ? slots.map((s) => `das ${s.open} às ${s.close}`).join(" e ") : "Fechado";
+  };
+  const groups: { days: number[]; text: string }[] = [];
+  for (const d of WEEK_ORDER) {
+    const text = describe(d);
+    const last = groups[groups.length - 1];
+    if (last && last.text === text) last.days.push(d);
+    else groups.push({ days: [d], text });
+  }
+  return groups
+    .map(({ days, text }) => {
+      const first = DAY_NAMES[days[0]];
+      const lastDay = DAY_NAMES[days[days.length - 1]];
+      const label = days.length === 1 ? first : days.length === 2 ? `${first} e ${lastDay}` : `${first} a ${lastDay}`;
+      return `• *${label}:* ${text}`;
+    })
+    .join("\n");
+}
+
+function cleanName(pushName: string): string {
+  return pushName.replace(/\s+/g, " ").trim().slice(0, 60);
 }
 
 function firstName(pushName: string): string {
@@ -53,10 +77,14 @@ function firstName(pushName: string): string {
   return clean.split(/\s+/)[0] ?? "";
 }
 
-/** Replaces {{nome}}, {{unidade}}, {{saudacao}}, {{horarios}}, {{expediente}} and tidies empty variables. */
+/**
+ * Variables: {{nome}} (full WhatsApp name, "Atleta" when empty — same as the old bot), {{primeiro_nome}},
+ * {{unidade}}, {{saudacao}}, {{horarios}}, {{expediente}}.
+ */
 export function renderTemplate(template: string, pushName: string, ctx: EngineContext): string {
   const vars: Record<string, string> = {
-    nome: firstName(pushName) || "Atleta", // same default as the old bot
+    nome: cleanName(pushName) || "Atleta",
+    primeiro_nome: firstName(pushName) || "Atleta",
     unidade: ctx.unitName,
     saudacao: greeting(ctx.now, ctx.timezone),
     horarios: formatHours(ctx.hours),

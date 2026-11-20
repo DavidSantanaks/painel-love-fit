@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { matchOption, runEngine } from "@/engine/engine";
 import { renderTemplate } from "@/engine/render";
+import { DEFAULT_HOURS } from "@/engine/seed-content";
 import { INITIAL_STATE, type ContactState } from "@/engine/types";
 import { ctx, NOW, seedSnapshot } from "./helpers";
 
@@ -18,7 +19,7 @@ describe("engine — menus and triggers", () => {
     const r = runEngine(content, INITIAL_STATE, msg("oi"), ctx());
     expect(r.decision).toBe("fallback");
     expect(r.nodeKey).toBe("menu-principal");
-    expect(r.replies[0].text.startsWith("Olá, *Maria*! Somos da *LOVE FIT")).toBe(true);
+    expect(r.replies[0].text.startsWith("Olá, *Maria Souza*! Somos da *LOVE FIT")).toBe(true); // full name, like the old bot
     expect(r.replies[0].text).toContain("*1* - 📋 Conhecer Nossos Planos e Regras");
     expect(r.replies).toHaveLength(1); // texts list their own options (showOptions = false)
   });
@@ -64,10 +65,16 @@ describe("engine — menus and triggers", () => {
   });
 
   it("renders {{horarios}} from the unit hours", () => {
-    const hours = [{ weekday: 3, open: "06:00", close: "22:00" }];
-    const out = renderTemplate("{{horarios}}", "Maria", ctx(NOW, hours));
-    expect(out).toContain("Qua: 06:00 às 22:00");
-    expect(out).toContain("Dom: fechado");
+    const out = renderTemplate("{{horarios}}", "Maria", ctx(NOW, DEFAULT_HOURS));
+    expect(out).toBe("• *Segunda a Sexta:* das 06:00 às 22:00\n• *Sábado:* das 09:00 às 14:00\n• *Domingo:* Fechado");
+    const split = renderTemplate("{{horarios}}", "Maria", ctx(NOW, [{ weekday: 1, open: "06:00", close: "12:00" }, { weekday: 1, open: "14:00", close: "22:00" }]));
+    expect(split.split("\n")[0]).toBe("• *Segunda:* das 06:00 às 12:00 e das 14:00 às 22:00");
+  });
+
+  it("horarios screen shows the unit and its hours", () => {
+    const r = runEngine(content, INITIAL_STATE, msg("4"), ctx(NOW, DEFAULT_HOURS));
+    expect(r.replies[0].text).toContain("na unidade *Atalaia*");
+    expect(r.replies[0].text).toContain("• *Segunda a Sexta:* das 06:00 às 22:00");
   });
 
   it("ignores messages without text (media with no caption)", () => {

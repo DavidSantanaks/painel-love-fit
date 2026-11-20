@@ -154,7 +154,7 @@ export const SEED_NODES: SeedNode[] = [
     title: "Horários",
     showOptions: false,
     messages: [
-      "🕔 *HORÁRIOS DE FUNCIONAMENTO - LOVE FIT* 💪\n\nConfira nossos horários de treino nas duas unidades:\n\n• *Segunda a Sexta:* das 06:00 às 22:00\n• *Sábados:* das 09:00 às 14:00\n• *Domingos e Feriados:* Fechado\n\n──────────────────────\n👉 Digite *1* para Ver Planos e Valores\n👉 Digite *2* para Fazer Inscrição (PIX)\n👉 Digite *0* para Voltar ao Menu Principal",
+      "🕔 *HORÁRIOS DE FUNCIONAMENTO - LOVE FIT* 💪\n\nConfira nossos horários de treino na unidade *{{unidade}}*:\n\n{{horarios}}\n\n──────────────────────\n👉 Digite *1* para Ver Planos e Valores\n👉 Digite *2* para Fazer Inscrição (PIX)\n👉 Digite *0* para Voltar ao Menu Principal",
     ],
     options: [
       { label: "Ver planos e valores", triggers: ["1", "plano", "planos", "valor", "valores", "preco", "precos"], action: "GO_TO", target: "planos" },
@@ -186,3 +186,9 @@ export const SEED_SETTINGS = {
   outOfHoursMessage:
     "⏰ Estamos fora do horário de atendimento agora. Sua mensagem fica registrada e a equipe responde assim que abrir.\n\n{{horarios}}",
 };
+
+/** Hours of the old bot (both units): Mon–Fri 06–22, Sat 09–14, Sun closed. Used for new instances. */
+export const DEFAULT_HOURS = [
+  ...[1, 2, 3, 4, 5].map((weekday) => ({ weekday, open: "06:00", close: "22:00" })),
+  { weekday: 6, open: "09:00", close: "14:00" },
+];
