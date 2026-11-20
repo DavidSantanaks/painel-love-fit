@@ -8,6 +8,7 @@ Chatbot de WhatsApp da LOVE FIT com painel web. Substitui o bot antigo (Evolutio
 
 Especificação em `lovefit-spec/` (constitution, spec, deploy). Plano e tarefas em `plan.md` e `tasks.md`.
 Próximos passos e ideias: `roadmap.md`.
+Configuração do Cloudflare (túnel, DNS, Access): `Cloudflare-LoveFit-Config.pdf`.
 
 ## Subir
 

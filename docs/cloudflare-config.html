@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Cloudflare — LOVE FIT</title>
+<style>
+@page { size: A4; margin: 16mm 15mm 18mm; }
+* { box-sizing: border-box; }
+body { font-family: "Inter", "Segoe UI", "DejaVu Sans", sans-serif; color: #1d1e24; font-size: 10.2pt; line-height: 1.5; margin: 0; }
+.cover { height: 255mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+.logo { width: 54px; height: 54px; border-radius: 15px; background: #e51a58; color: #fff; font-size: 28px; display: flex; align-items: center; justify-content: center; margin-bottom: 26px; }
+.cover h1 { font-size: 30pt; line-height: 1.1; margin: 0 0 10px; letter-spacing: -.5px; }
+.cover .sub { font-size: 13pt; color: #5b5e6b; max-width: 140mm; }
+.cover .meta { margin-top: 34px; font-size: 9.5pt; color: #6b6e7c; border-top: 1px solid #e3e3e8; padding-top: 14px; }
+.cover .meta b { color: #1d1e24; }
+h2 { font-size: 15pt; margin: 22px 0 6px; padding-top: 4px; letter-spacing: -.2px; page-break-after: avoid; display: flex; align-items: center; gap: 10px; }
+h2 .n { flex: none; width: 26px; height: 26px; border-radius: 8px; background: #e51a58; color: #fff; font-size: 11pt; display: inline-flex; align-items: center; justify-content: center; }
+h3 { font-size: 11pt; margin: 14px 0 4px; page-break-after: avoid; }
+p { margin: 5px 0; }
+ul, ol { margin: 5px 0; padding-left: 20px; }
+li { margin: 2px 0; }
+code { font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 8.8pt; background: #f2f2f5; padding: 1px 4px; border-radius: 4px; }
+pre { font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 8.6pt; background: #16171c; color: #f1f1f4; padding: 9px 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; margin: 6px 0 8px; page-break-inside: avoid; line-height: 1.45; }
+pre .c { color: #8b8fa0; }
+.box { border-radius: 9px; padding: 9px 12px; margin: 8px 0; page-break-inside: avoid; font-size: 9.6pt; }
+.warn { background: #fff6e6; border: 1px solid #f6d69a; }
+.stop { background: #fff0f3; border: 1px solid #f7b8c8; }
+.ok { background: #ecfbf3; border: 1px solid #b5e8cc; }
+.info { background: #f1f5ff; border: 1px solid #c9d6f7; }
+table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 9.2pt; page-break-inside: avoid; }
+th { text-align: left; background: #f4f4f7; font-size: 8.4pt; text-transform: uppercase; letter-spacing: .3px; color: #5b5e6b; }
+th, td { border: 1px solid #e3e3e8; padding: 5px 8px; vertical-align: top; }
+.check li { list-style: none; margin-left: -18px; }
+.check li::before { content: "☐  "; color: #e51a58; }
+.toc { columns: 2; font-size: 10pt; margin-top: 8px; }
+.toc div { margin: 3px 0; }
+section { page-break-inside: auto; }
+.pb { page-break-before: always; }
+</style></head><body>
+</head><body>
+<h1 style="font-size:22pt;margin:0 0 4px">Configuração do Cloudflare — painel LOVE FIT</h1>
+<p style="color:#5b5e6b;margin-bottom:14px">Registro do que foi configurado no Cloudflare One em 20/11/2026 para publicar e proteger o painel. Não contém o token do túnel nem senhas.<br>
+<b>Legenda:</b> ✅ confirmado nos logs ou no teste · ☐ confirmar na tela do Cloudflare e anotar aqui</p>
+
+<div class="box info"><b>Como o acesso funciona:</b> navegador → Cloudflare (pede o e-mail e o código, via Access) → túnel <code>lovefit-bot</code> (conexão de saída da VPS) → container <code>cloudflared</code> → <code>http://app:3000</code> na rede interna do Docker. Nenhuma porta da VPS fica aberta para a internet. O webhook da Evolution (<code>/api/webhooks/evolution</code>) é interno e não passa pelo Cloudflare: o app recusa qualquer chamada a ele que venha do Cloudflare.</div>
+
+<h2><span class="n">1</span>Túnel (Cloudflare Tunnel)</h2>
+<p>Onde fica: Cloudflare One → <b>Networking</b> → <b>Tunnels</b>.</p>
+<table>
+<tr><th style="width:34%">Item</th><th>Valor</th><th style="width:8%"></th></tr>
+<tr><td>Nome</td><td><code>lovefit-bot</code></td><td>✅</td></tr>
+<tr><td>Tunnel ID</td><td><code>ec8aa3ab-5251-40b8-93c4-8514afcdaef8</code></td><td>✅</td></tr>
+<tr><td>Tipo</td><td>Cloudflared, gerenciado pelo painel (remotely-managed, autenticado por token)</td><td>✅</td></tr>
+<tr><td>Onde roda o conector</td><td>Container <code>cloudflared</code> (imagem <code>cloudflare/cloudflared:2025.11.1</code>) do projeto <code>lovefit-bot</code>, na VPS</td><td>✅</td></tr>
+<tr><td>Token</td><td>Só no <code>.env</code> da VPS (<code>TUNNEL_TOKEN</code>). Nunca no Git.</td><td>✅</td></tr>
+<tr><td>Conexões</td><td>4 conexões, em São Paulo (gru02, gru11, gru13, gru22), protocolo QUIC</td><td>✅</td></tr>
+</table>
+
+<h3>Rota publicada (Routes → Published application)</h3>
+<table>
+<tr><th style="width:34%">Hostname</th><th>Service URL</th><th style="width:8%"></th></tr>
+<tr><td><code>painellovefit.tavernahub.com.br</code></td><td><code>http://app:3000</code> (path vazio)</td><td>✅</td></tr>
+<tr><td>(qualquer outro nome)</td><td><code>http_status:404</code> (regra padrão)</td><td>✅</td></tr>
+</table>
+<p>Para conferir que a rota chegou ao túnel: <code>docker compose -p lovefit-bot logs cloudflared | grep "Updated to new configuration"</code>.</p>
+
+<h2><span class="n">2</span>DNS</h2>
+<table>
+<tr><th style="width:24%">Zona</th><th>Registro</th><th style="width:8%"></th></tr>
+<tr><td><code>tavernahub.com.br</code></td><td>CNAME <code>painellovefit</code> → <code>ec8aa3ab-5251-40b8-93c4-8514afcdaef8.cfargotunnel.com</code> (proxied, criado automaticamente pela rota)</td><td>✅</td></tr>
+<tr><td><code>tavernahub.com.br</code></td><td><code>lk</code> (LiveKit do Taverna). <b>Não mexer.</b></td><td>✅</td></tr>
+<tr><td><code>pelaarteatelie.com.br</code></td><td>CNAME <code>painellovefit</code> que sobrou de uma rota criada por engano. <b>Apagar.</b> Hoje não expõe nada: o túnel responde 404.</td><td>☐</td></tr>
+</table>
+
+<h2><span class="n">3</span>Login por código de e-mail</h2>
+<p>Onde fica: <b>Integrations</b> → <b>Identity providers</b>.</p>
+<table>
+<tr><th style="width:34%">Provedor</th><th>Uso</th><th style="width:8%"></th></tr>
+<tr><td>One-time PIN</td><td>O Cloudflare envia um código de 6 dígitos para o e-mail informado</td><td>✅</td></tr>
+</table>
+
+<h2><span class="n">4</span>Política de acesso (Access policy)</h2>
+<p>Onde fica: <b>Access controls</b> → <b>Policies</b>.</p>
+<table>
+<tr><th style="width:34%">Campo</th><th>Valor</th><th style="width:8%"></th></tr>
+<tr><td>Nome</td><td><code>Equipe painel LOVE FIT</code></td><td>☐</td></tr>
+<tr><td>Action</td><td>Allow</td><td>☐</td></tr>
+<tr><td>Regra</td><td>Include → Emails</td><td>☐</td></tr>
+<tr><td>E-mails autorizados</td><td>1. ______________________<br>2. ______________________<br>3. ______________________</td><td>☐</td></tr>
+<tr><td>Session duration</td><td>24 hours</td><td>☐</td></tr>
+</table>
+
+<h2><span class="n">5</span>Aplicação do Access</h2>
+<p>Onde fica: <b>Access controls</b> → <b>Applications</b>.</p>
+<table>
+<tr><th style="width:34%">Campo</th><th>Valor</th><th style="width:8%"></th></tr>
+<tr><td>Tipo</td><td>Self-hosted and private</td><td>☐</td></tr>
+<tr><td>Nome</td><td><code>Painel LOVE FIT</code></td><td>☐</td></tr>
+<tr><td>Public hostname</td><td><code>painellovefit.tavernahub.com.br</code> (sem path)</td><td>☐</td></tr>
+<tr><td>Policy</td><td><code>Equipe painel LOVE FIT</code></td><td>☐</td></tr>
+<tr><td>Identity providers</td><td>One-time PIN (instant authentication: ligado / desligado)</td><td>☐</td></tr>
+<tr><td>Session Duration</td><td>24 hours</td><td>☐</td></tr>
+<tr><td>Additional settings</td><td>padrão (nada alterado)</td><td>☐</td></tr>
+</table>
+
+<h2><span class="n">6</span>Tarefas comuns</h2>
+<table>
+<tr><th style="width:34%">Quero…</th><th>Onde</th></tr>
+<tr><td>Dar acesso a uma pessoa nova</td><td>Access controls → Policies → <code>Equipe painel LOVE FIT</code> → adicionar o e-mail em Emails → Save. Depois, criar o login dela no painel (<code>create-admin</code> com <code>--role RECEPTION</code>).</td></tr>
+<tr><td>Tirar o acesso de alguém</td><td>Remover o e-mail da política <b>e</b> trocar ou desativar o usuário no painel.</td></tr>
+<tr><td>Ver quem entrou</td><td>Cloudflare One → Logs → Access (autenticações). No painel: Log e auditoria.</td></tr>
+<tr><td>Trocar o token do túnel (vazou)</td><td>Networking → Tunnels → <code>lovefit-bot</code> → refresh/rotate do token → atualizar <code>TUNNEL_TOKEN</code> no <code>.env</code> → <code>docker compose -p lovefit-bot up -d cloudflared</code>.</td></tr>
+<tr><td>Tirar o painel do ar rapidamente</td><td><code>docker compose -p lovefit-bot stop cloudflared</code>. O bot continua respondendo no WhatsApp.</td></tr>
+</table>
+
+<div class="box warn"><b>Regras que não podem quebrar:</b> (1) não criar registro DNS manual para <code>painellovefit</code>, porque a rota do túnel cuida disso; (2) nunca tirar a política do Access sem outra proteção no lugar; (3) não publicar o webhook nem a Evolution API no túnel: só o painel (<code>app:3000</code>) passa por ele; (4) o token do túnel fica só no <code>.env</code> da VPS.</div>
+</body></html>
