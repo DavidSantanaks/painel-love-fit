@@ -139,7 +139,7 @@ nano .env                      <span class="c"># confira; TUNNEL_TOKEN vem no pa
 <tr><td>Domain</td><td><code>tavernahub.com.br</code></td></tr>
 <tr><td>Path</td><td>(vazio)</td></tr>
 <tr><td>Service URL</td><td><code>http://app:3000</code></td></tr></table></li>
-<li><b>Save</b>. O Cloudflare cria o CNAME sozinho. <b>Não crie registro DNS à mão</b>, e confira em DNS que não existe um <code>painellovefit</code> antigo. O registro <code>lk</code> do LiveKit fica como está.</li>
+<li>Confira se o <b>Domain</b> escolhido é mesmo <code>tavernahub.com.br</code>, porque o dropdown lista todos os domínios da conta. <b>Save</b>. O Cloudflare cria o CNAME sozinho. <b>Não crie registro DNS à mão</b>, e confira em DNS que não existe um <code>painellovefit</code> antigo. O registro <code>lk</code> do LiveKit fica como está.</li>
 </ol>
 <div class="box warn">Recomendado: faça o <b>passo 9 (Cloudflare Access) antes de salvar esta rota</b>, para o painel nunca ficar exposto sem a camada de e-mail. Se seguir a ordem do guia, deixe o intervalo entre os dois passos o mais curto possível.</div>
 
@@ -155,11 +155,10 @@ docker ps | grep -Ei 'caddy|livekit'        <span class="c"># o Taverna continua
 <div class="box ok">No log do <code>app</code> devem aparecer <code>All migrations have been successfully applied</code>, <code>Seed: franquia LOVE FIT criada com as telas iniciais</code> e <code>worker_started</code>. A migração e o seed rodam sozinhos.</div>
 
 <h2><span class="n">8</span>Criar o admin e abrir o painel</h2>
-<pre>docker compose -p lovefit-bot exec app npm run create-admin -- \
-  --email voce@exemplo.com --name "Seu Nome"</pre>
+<pre>docker compose -p lovefit-bot exec app npm run create-admin -- --email voce@exemplo.com --name "Seu Nome"</pre>
+<p>Digite <b>em uma linha só</b>. Se colar com <code>\</code> no meio da linha, o <code>--email</code> não é reconhecido.</p>
 <p>A senha aparece <b>uma única vez</b>. Guarde no gerenciador de senhas. Para a recepção (acesso a telas, conversas, configurações e simulador, sem WhatsApp e sem blacklist):</p>
-<pre>docker compose -p lovefit-bot exec app npm run create-admin -- \
-  --email recepcao@exemplo.com --name "Recepção" --role RECEPTION</pre>
+<pre>docker compose -p lovefit-bot exec app npm run create-admin -- --email recepcao@exemplo.com --name "Recepção" --role RECEPTION</pre>
 <p>Rodar o mesmo comando com um e-mail que já existe <b>gera uma senha nova</b> (serve para "esqueci a senha"). Abra <code>https://painellovefit.tavernahub.com.br</code> e entre.</p>
 <p><b>Sem o túnel, por SSH</b> (plano B para a equipe técnica): <code>ssh -L 3000:localhost:3000 deploy@IP-DA-VPS</code> e abra <code>http://localhost:3000</code>.</p>
 
@@ -276,6 +275,8 @@ ls backups/                    <span class="c"># ex.: lovefit-20261120-033000.du
 <table>
 <tr><th style="width:32%">Sintoma</th><th>Onde olhar / o que fazer</th></tr>
 <tr><td>Painel não abre (erro 1033/502 do Cloudflare)</td><td><code>docker compose -p lovefit-bot logs cloudflared</code>. Confira o <code>TUNNEL_TOKEN</code>, <code>COMPOSE_PROFILES=tunnel</code> e a rota (Networking → Tunnels → lovefit-bot → Routes) apontando para <code>http://app:3000</code>.</td></tr>
+<tr><td>Painel não carrega, mas o túnel está conectado</td><td>No log do cloudflared precisa aparecer <code>Updated to new configuration</code> com <code>painellovefit.tavernahub.com.br</code> → <code>http://app:3000</code>. Se não aparecer, a rota não foi salva neste túnel. Se aparecer outro domínio, o domínio errado foi escolhido no dropdown: corrija a rota e apague o CNAME que sobrou na zona errada.</td></tr>
+<tr><td><code>ERR Cannot determine default origin certificate path … cert.pem</code></td><td>Normal em túnel com token. Pode ignorar.</td></tr>
 <tr><td>Bot não responde</td><td>Painel → WhatsApp: está "Conectado"? O aviso "Webhook desligado" aparece? Clique em <b>Reconfigurar webhook</b>. Depois: <code>./manage.sh logs app</code> e <code>./manage.sh logs evolution-api</code>.</td></tr>
 <tr><td>Cliente específico não recebe</td><td>Log e auditoria: "blacklist", "anti-flood", "pausado" ou "sem telefone resolvido" (contato <code>@lid</code>, ver Configurações).</td></tr>
 <tr><td>WhatsApp desconectou</td><td>Painel → WhatsApp → <b>Conectar (QR Code)</b>. Se não gerar, clique em <b>Reiniciar</b> e tente de novo.</td></tr>
