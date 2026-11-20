@@ -131,16 +131,17 @@ nano .env                      <span class="c"># confira; TUNNEL_TOKEN vem no pa
 
 <h2><span class="n">6</span>Criar o túnel no Cloudflare</h2>
 <ol>
-<li>Cloudflare → <b>Zero Trust</b> → <b>Networks</b> → <b>Tunnels</b> → <b>Create a tunnel</b> → tipo <b>Cloudflared</b>.</li>
+<li>Cloudflare One → <b>Networking</b> → <b>Tunnels</b> → criar túnel, do tipo <b>Cloudflared</b>.</li>
 <li>Nome: <code>lovefit-bot</code>. Na tela de instalação, copie só o <b>token</b> (o texto longo depois de <code>--token</code>) e cole em <code>TUNNEL_TOKEN=</code> no <code>.env</code>. <b>Não</b> rode o comando de instalação que o Cloudflare sugere: o cloudflared já está no compose.</li>
-<li>Aba <b>Public Hostname</b> → <b>Add a public hostname</b>:
+<li>Abra o túnel <code>lovefit-bot</code> → aba <b>Routes</b> → <b>Add route</b> → <b>Published application</b>:
 <table><tr><th>Campo</th><th>Valor</th></tr>
 <tr><td>Subdomain</td><td><code>painellovefit</code></td></tr>
 <tr><td>Domain</td><td><code>tavernahub.com.br</code></td></tr>
 <tr><td>Path</td><td>(vazio)</td></tr>
-<tr><td>Service</td><td>Type <code>HTTP</code>, URL <code>app:3000</code></td></tr></table></li>
-<li>Salve. O Cloudflare cria o CNAME sozinho. <b>Não crie registro DNS à mão</b>, e confira em DNS que não existe um <code>painellovefit</code> antigo. O registro <code>lk</code> do LiveKit fica como está.</li>
+<tr><td>Service URL</td><td><code>http://app:3000</code></td></tr></table></li>
+<li><b>Save</b>. O Cloudflare cria o CNAME sozinho. <b>Não crie registro DNS à mão</b>, e confira em DNS que não existe um <code>painellovefit</code> antigo. O registro <code>lk</code> do LiveKit fica como está.</li>
 </ol>
+<div class="box warn">Recomendado: faça o <b>passo 9 (Cloudflare Access) antes de salvar esta rota</b>, para o painel nunca ficar exposto sem a camada de e-mail. Se seguir a ordem do guia, deixe o intervalo entre os dois passos o mais curto possível.</div>
 
 <h2><span class="n">7</span>Subir os containers</h2>
 <pre>cd /opt/lovefit-bot
@@ -163,13 +164,47 @@ docker ps | grep -Ei 'caddy|livekit'        <span class="c"># o Taverna continua
 <p><b>Sem o túnel, por SSH</b> (plano B para a equipe técnica): <code>ssh -L 3000:localhost:3000 deploy@IP-DA-VPS</code> e abra <code>http://localhost:3000</code>.</p>
 
 <h2><span class="n">9</span>Proteger com Cloudflare Access (recomendado)</h2>
-<p>Zero Trust → <b>Access</b> → <b>Applications</b> → <b>Add an application</b> → <b>Self-hosted</b>:</p>
-<ul>
-<li>Application domain: <code>painellovefit.tavernahub.com.br</code></li>
-<li>Policy: <b>Allow</b> → Include → <b>Emails</b>: o seu e-mail e o de quem usa o painel</li>
-<li>Session duration: 24 h (ou o que preferir)</li>
+<p>O Cloudflare passa a pedir um código enviado por e-mail antes de mostrar a tela de login do painel. O painel no Cloudflare agora se chama <b>Cloudflare One</b> (o antigo Zero Trust), e os menus mudaram de lugar.</p>
+<div class="box warn">O ideal é fazer este passo <b>antes</b> de publicar a rota do túnel (passo 6), porque sem o Access o painel fica aberto para qualquer pessoa na internet, protegido só pelo login do app. Se o túnel já está no ar, faça agora mesmo.</div>
+
+<h3>9.1 Ligar o login por código de e-mail (One-time PIN)</h3>
+<ol>
+<li>Cloudflare One → <b>Integrations</b> → <b>Identity providers</b>.</li>
+<li>Em <b>Your identity providers</b>, veja se <b>One-time PIN</b> já aparece. Se não aparecer: <b>Add new identity provider</b> → <b>One-time PIN</b> → salvar.</li>
+</ol>
+
+<h3>9.2 Criar a política de quem pode entrar</h3>
+<ol>
+<li><b>Access controls</b> → <b>Policies</b> → <b>Add a policy</b>.</li>
+<li><b>Policy name</b>: <code>Equipe painel LOVE FIT</code>.</li>
+<li><b>Action</b>: <code>Allow</code>.</li>
+<li><b>Session duration</b>: <code>24 hours</code> (ou o que preferir).</li>
+<li>Em <b>Rules</b>, numa regra do tipo <b>Include</b>: selector <b>Emails</b> e, no valor, o seu e-mail e o de cada pessoa que usa o painel.</li>
+<li><b>Save</b>.</li>
+</ol>
+
+<h3>9.3 Criar a aplicação do painel</h3>
+<ol>
+<li><b>Access controls</b> → <b>Applications</b> → <b>Create new application</b>.</li>
+<li>Escolha <b>Self-hosted and private</b>.</li>
+<li>Nome da aplicação: <code>Painel LOVE FIT</code>.</li>
+<li><b>Add public hostname</b>: subdomain <code>painellovefit</code>, <b>Domain</b> <code>tavernahub.com.br</code>, path vazio.</li>
+<li>Em <b>Access policies</b>, selecione a política <code>Equipe painel LOVE FIT</code> criada no 9.2. O novo construtor também permite criar a política ali mesmo, sem sair da tela.</li>
+<li>Nos provedores de login (identity providers), deixe marcado só <b>One-time PIN</b>. Com um único provedor, pode ligar <b>Apply instant authentication</b>, que pula a tela de escolha do provedor.</li>
+<li><b>Session Duration</b>: <code>24 hours</code>.</li>
+<li>Não precisa mexer em <b>Additional settings</b>.</li>
+<li><b>Create</b>.</li>
+</ol>
+
+<h3>9.4 Testar</h3>
+<ul class="check">
+<li>Abra <code>https://painellovefit.tavernahub.com.br</code> numa janela anônima. Deve aparecer a tela do Cloudflare pedindo o e-mail.</li>
+<li>Digite um e-mail autorizado: chega um código de 6 dígitos. Depois do código, aparece a tela de login do painel.</li>
+<li>Digite um e-mail que <b>não</b> está na lista: o Cloudflare não libera o acesso.</li>
+<li>O bot continua respondendo no WhatsApp. O webhook é interno (Evolution → <code>app:3000</code>) e não passa pelo Access.</li>
 </ul>
-<p>Depois disso, o Cloudflare pede um código por e-mail antes de mostrar a tela de login do painel. O webhook da Evolution não é afetado, porque é interno: chamadas ao webhook vindas da internet são recusadas pelo app.</p>
+<p>Para incluir ou tirar alguém depois: <b>Access controls</b> → <b>Policies</b> → <code>Equipe painel LOVE FIT</code> → edite os e-mails → <b>Save</b>. Vale para a aplicação na hora.</p>
+<div class="box info">Os nomes dos botões seguem a documentação atual do Cloudflare One. Se algum rótulo estiver um pouco diferente na sua tela, o caminho é o mesmo: <b>Access controls → Policies</b> para a política e <b>Access controls → Applications</b> para a aplicação.</div>
 
 <h2><span class="n">10</span>Configurar o painel (antes de conectar números reais)</h2>
 <ol>
@@ -240,7 +275,7 @@ ls backups/                    <span class="c"># ex.: lovefit-20261120-033000.du
 <h2><span class="n">15</span>Se algo der errado</h2>
 <table>
 <tr><th style="width:32%">Sintoma</th><th>Onde olhar / o que fazer</th></tr>
-<tr><td>Painel não abre (erro 1033/502 do Cloudflare)</td><td><code>docker compose -p lovefit-bot logs cloudflared</code>. Confira o <code>TUNNEL_TOKEN</code>, <code>COMPOSE_PROFILES=tunnel</code> e o Public Hostname apontando para <code>http://app:3000</code>.</td></tr>
+<tr><td>Painel não abre (erro 1033/502 do Cloudflare)</td><td><code>docker compose -p lovefit-bot logs cloudflared</code>. Confira o <code>TUNNEL_TOKEN</code>, <code>COMPOSE_PROFILES=tunnel</code> e a rota (Networking → Tunnels → lovefit-bot → Routes) apontando para <code>http://app:3000</code>.</td></tr>
 <tr><td>Bot não responde</td><td>Painel → WhatsApp: está "Conectado"? O aviso "Webhook desligado" aparece? Clique em <b>Reconfigurar webhook</b>. Depois: <code>./manage.sh logs app</code> e <code>./manage.sh logs evolution-api</code>.</td></tr>
 <tr><td>Cliente específico não recebe</td><td>Log e auditoria: "blacklist", "anti-flood", "pausado" ou "sem telefone resolvido" (contato <code>@lid</code>, ver Configurações).</td></tr>
 <tr><td>WhatsApp desconectou</td><td>Painel → WhatsApp → <b>Conectar (QR Code)</b>. Se não gerar, clique em <b>Reiniciar</b> e tente de novo.</td></tr>
