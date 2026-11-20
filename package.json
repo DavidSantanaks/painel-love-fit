@@ -15,6 +15,7 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "import-blacklist": "tsx scripts/import-blacklist.ts",
     "create-franchise": "tsx scripts/create-franchise.ts",
+    "import-content": "tsx scripts/import-content.ts",
     "purge": "tsx scripts/purge.ts"
   },
   "dependencies": {

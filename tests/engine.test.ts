@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchOption, runEngine } from "@/engine/engine";
+import { renderTemplate } from "@/engine/render";
 import { INITIAL_STATE, type ContactState } from "@/engine/types";
 import { ctx, NOW, seedSnapshot } from "./helpers";
 
@@ -17,14 +18,23 @@ describe("engine — menus and triggers", () => {
     const r = runEngine(content, INITIAL_STATE, msg("oi"), ctx());
     expect(r.decision).toBe("fallback");
     expect(r.nodeKey).toBe("menu-principal");
-    expect(r.replies[0].text).toContain("Boa tarde, Maria!");
-    expect(r.replies[0].text).toContain("LOVE FIT Atalaia");
-    expect(r.replies[0].text).toContain("*1* - Planos e valores");
+    expect(r.replies[0].text.startsWith("Olá, *Maria*! Somos da *LOVE FIT")).toBe(true);
+    expect(r.replies[0].text).toContain("*1* - 📋 Conhecer Nossos Planos e Regras");
+    expect(r.replies).toHaveLength(1); // texts list their own options (showOptions = false)
   });
 
-  it("drops the dangling comma when the contact has no name", () => {
+  it("uses 'Atleta' when the contact has no name, like the old bot", () => {
     const r = runEngine(content, INITIAL_STATE, msg("oi", { pushName: "" }), ctx());
-    expect(r.replies[0].text.startsWith("Boa tarde! ")).toBe(true);
+    expect(r.replies[0].text.startsWith("Olá, *Atleta*!")).toBe(true);
+  });
+
+  it("keeps the old bot's word triggers (fiel, dupla, casal, cadastro, suporte…)", () => {
+    const cases: [string, string][] = [
+      ["fiel", "regras-love-fiel"], ["casal", "regras-love-dupla"], ["basico", "regras-basico"],
+      ["cadastro", "matricula"], ["quero me matricular", "matricula"], ["jardim santana", "matricula-santana"],
+      ["funcionamento", "horarios"], ["suporte", "atendente"], ["ja sou aluno", "renovar"],
+    ];
+    for (const [text, node] of cases) expect(runEngine(content, INITIAL_STATE, msg(text), ctx()).nodeKey, text).toBe(node);
   });
 
   it("matches numeric and word triggers, accent-insensitive", () => {
@@ -53,11 +63,11 @@ describe("engine — menus and triggers", () => {
     expect(r.replies[0].text).toContain("R$ 79,90");
   });
 
-  it("renders the unit hours", () => {
+  it("renders {{horarios}} from the unit hours", () => {
     const hours = [{ weekday: 3, open: "06:00", close: "22:00" }];
-    const r = runEngine(content, INITIAL_STATE, msg("4"), ctx(NOW, hours));
-    expect(r.replies[0].text).toContain("Qua: 06:00 às 22:00");
-    expect(r.replies[0].text).toContain("Dom: fechado");
+    const out = renderTemplate("{{horarios}}", "Maria", ctx(NOW, hours));
+    expect(out).toContain("Qua: 06:00 às 22:00");
+    expect(out).toContain("Dom: fechado");
   });
 
   it("ignores messages without text (media with no caption)", () => {
@@ -75,7 +85,7 @@ describe("engine — human handoff and pause", () => {
     expect(r.handoff).toEqual({ reason: "Falar com atendente" });
     expect(r.state.status).toBe("WAITING_HUMAN");
     expect(r.state.pausedUntil!.getTime() - NOW.getTime()).toBe(60 * 60_000);
-    expect(r.replies[0].text).toContain("Já chamei a recepção");
+    expect(r.replies[0].text).toContain("Notificamos um atendente");
   });
 
   it("node with acao_ao_entrar pause(60) also hands off (renovar)", () => {

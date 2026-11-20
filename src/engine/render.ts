@@ -56,7 +56,7 @@ function firstName(pushName: string): string {
 /** Replaces {{nome}}, {{unidade}}, {{saudacao}}, {{horarios}}, {{expediente}} and tidies empty variables. */
 export function renderTemplate(template: string, pushName: string, ctx: EngineContext): string {
   const vars: Record<string, string> = {
-    nome: firstName(pushName),
+    nome: firstName(pushName) || "Atleta", // same default as the old bot
     unidade: ctx.unitName,
     saudacao: greeting(ctx.now, ctx.timezone),
     horarios: formatHours(ctx.hours),

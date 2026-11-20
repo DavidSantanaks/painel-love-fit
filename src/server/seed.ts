@@ -1,11 +1,13 @@
 /** Seeding and franchise cloning (spec §6.0 and §9). Uses a passed PrismaClient so scripts can reuse it. */
 import type { PrismaClient } from "@prisma/client";
-import { SEED_NODES, SEED_SETTINGS } from "@/engine/seed-content";
+import { SEED_NODES, SEED_SETTINGS, type SeedNode } from "@/engine/seed-content";
+import { validateContent } from "@/engine/validate";
 
-export async function seedFranchiseContent(db: PrismaClient, franchiseId: string) {
-  await db.$transaction(async (tx) => {
+type Tx = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
+
+async function createNodes(tx: Tx, franchiseId: string, nodes: SeedNode[]) {
     const ids = new Map<string, string>();
-    for (const n of SEED_NODES) {
+    for (const n of nodes) {
       const node = await tx.node.create({
         data: {
           franchiseId,
@@ -20,7 +22,7 @@ export async function seedFranchiseContent(db: PrismaClient, franchiseId: string
       });
       ids.set(n.key, node.id);
     }
-    for (const n of SEED_NODES) {
+    for (const n of nodes) {
       await tx.option.createMany({
         data: n.options.map((o, i) => ({
           franchiseId,
@@ -34,7 +36,34 @@ export async function seedFranchiseContent(db: PrismaClient, franchiseId: string
         })),
       });
     }
+}
+
+export async function seedFranchiseContent(db: PrismaClient, franchiseId: string) {
+  await db.$transaction(async (tx) => {
+    await createNodes(tx, franchiseId, SEED_NODES);
     await tx.settings.create({ data: { franchiseId, ...SEED_SETTINGS } });
+  });
+}
+
+/** Checks a content file (same shape as SEED_NODES) against RF-22 rules. Returns error messages. */
+export function validateSeedNodes(nodes: SeedNode[]): string[] {
+  return validateContent(
+    nodes.map((n) => ({
+      key: n.key,
+      title: n.title,
+      isMain: !!n.isMain,
+      options: n.options.map((o) => ({ label: o.label, triggers: o.triggers, action: o.action, targetKey: o.target })),
+    })),
+  );
+}
+
+/** Replaces ALL screens of a franchise with the given ones (settings, blacklist, contacts untouched). */
+export async function replaceFranchiseContent(db: PrismaClient, franchiseId: string, nodes: SeedNode[]) {
+  const errors = validateSeedNodes(nodes);
+  if (errors.length) throw new Error("Conteúdo inválido:\n- " + errors.join("\n- "));
+  await db.$transaction(async (tx) => {
+    await tx.node.deleteMany({ where: { franchiseId } });
+    await createNodes(tx, franchiseId, nodes);
   });
 }
 

@@ -10,3 +10,7 @@ backups/
 backup.log
 coverage/
 legacy-private/
+
+# n8n export (contains API key, phones, Pix) and private content files — never commit
+gym-chatbot-workflow.json
+*.private.json

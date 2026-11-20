@@ -13,7 +13,7 @@ describe("pipeline — acceptance criteria (spec §11)", () => {
     await handleInbound(w.event(CLIENT, "oi", { instance: "santana" }), w.deps);
     expect(w.sent).toHaveLength(1);
     expect(w.sent[0].instance).toBe("santana");
-    expect(w.sent[0].text).toContain("LOVE FIT Jardim Santana");
+    expect(w.sent[0].text).toContain("Olá, *Cliente*!");
   });
 
   it("two messages within 5 s produce a single answer (RF-06)", async () => {

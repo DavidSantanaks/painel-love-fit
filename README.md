@@ -28,6 +28,7 @@ Sem túnel (ksserver / teste local): deixe `COMPOSE_PROFILES=` vazio no `.env`.
 | Criar admin (senha gerada e mostrada uma vez) | `docker compose -p lovefit-bot exec app npm run create-admin -- --email voce@exemplo.com --name "Seu Nome"` |
 | Criar usuário da recepção | `… create-admin -- --email recepcao@exemplo.com --name "Recepção" --role RECEPTION` |
 | Importar blacklist (arquivo fora do repo) | `docker compose -p lovefit-bot exec -T app npm run import-blacklist -- --label "Família" < numeros.txt` |
+| Importar telas de um arquivo (substitui todas) | `docker compose -p lovefit-bot exec -T app npm run import-content -- --replace < lovefit-content.private.json` |
 | Nova franquia (cópia das telas da LOVE FIT) | `docker compose -p lovefit-bot exec app npm run create-franchise -- --name "LOVE FIT Centro" --slug centro` |
 | Backup (bancos + mídia) | `./scripts/backup.sh` (cron diário, ver o guia de deploy) |
 | Restaurar | `./scripts/restore.sh AAAAMMDD-HHMMSS` |
@@ -38,7 +39,7 @@ Papéis: `PLATFORM_ADMIN` (todas as franquias), `ADMIN` (a própria franquia, in
 
 ## Antes do go-live
 
-1. Revise as telas no painel. Os textos marcados com **[EDITAR]** (preço do plano Básico, regras dos planos, chaves Pix e link de cadastro) não constavam no spec, porque a pasta `legacy/` estava vazia.
+1. As telas usam os textos exatos do bot antigo (n8n). Só a chave Pix e o favorecido de cada unidade ficam como **[EDITAR]** no repositório: em produção eles vêm do arquivo privado `lovefit-content.private.json` (fora do git) com `import-content`, ou são digitados no painel.
 2. Importe a blacklist do n8n **vivo** (6 números, não o JSON antigo da pasta).
 3. Cadastre os números de aviso da equipe e use "Enviar teste" em Configurações.
 4. Cadastre o horário de cada unidade (Configurações → Horário de funcionamento).
