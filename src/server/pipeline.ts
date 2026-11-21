@@ -87,7 +87,7 @@ export async function handleInbound(ev: InboundEvent, deps: PipelineDeps): Promi
       content,
       { status: state.status, pausedUntil: state.pausedUntil, currentNodeKey: state.currentNodeKey },
       { fromMe: ev.fromMe, text: ev.text, pushName: ev.pushName },
-      { unitName: instance.unitName, hours: instance.hours, timezone: deps.timezone, now },
+      { unitName: instance.unitName, hours: instance.hours, exceptions: instance.exceptions, timezone: deps.timezone, now },
     );
 
     const contact = await store.saveContact({

@@ -1,7 +1,7 @@
 /** Real implementations of the pipeline ports: Prisma (state) + Redis (ephemeral) + Evolution (gateway). */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { ContentSnapshot, EngineNode, HoursEntry } from "@/engine/types";
+import type { ContentSnapshot, DateException, EngineNode, HoursEntry } from "@/engine/types";
 import { prisma } from "./db";
 import { env } from "./env";
 import { evolutionGateway } from "./evolution";
@@ -17,6 +17,23 @@ export function parseHours(v: unknown): HoursEntry[] {
     .filter((h) => h && typeof h === "object")
     .map((h) => ({ weekday: Number(h.weekday), open: String(h.open), close: String(h.close) }))
     .filter((h) => h.weekday >= 0 && h.weekday <= 6 && /^\d{2}:\d{2}$/.test(h.open) && /^\d{2}:\d{2}$/.test(h.close));
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const HHMM = /^\d{2}:\d{2}$/;
+
+export function parseExceptions(v: unknown): DateException[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((e) => e && typeof e === "object" && ISO_DATE.test(String(e.from)) && ISO_DATE.test(String(e.to)) && String(e.from) <= String(e.to))
+    .map((e) => ({
+      from: String(e.from),
+      to: String(e.to),
+      label: String(e.label ?? ""),
+      open: HHMM.test(String(e.open)) && HHMM.test(String(e.close)) ? String(e.open) : null,
+      close: HHMM.test(String(e.open)) && HHMM.test(String(e.close)) ? String(e.close) : null,
+      message: String(e.message ?? ""),
+    }));
 }
 
 /** Reads the franchise content fresh from the DB on every message (RF-23: edits apply immediately). */
@@ -76,7 +93,7 @@ export async function loadSnapshot(franchiseId: string): Promise<{ content: Cont
 export const prismaStore: Store = {
   async findInstance(name) {
     const i = await prisma.instance.findUnique({ where: { name } });
-    return i ? { id: i.id, franchiseId: i.franchiseId, name: i.name, unitName: i.unitName, hours: parseHours(i.hours) } : null;
+    return i ? { id: i.id, franchiseId: i.franchiseId, name: i.name, unitName: i.unitName, hours: parseHours(i.hours), exceptions: parseExceptions(i.exceptions) } : null;
   },
   loadContent: loadSnapshot,
   async isBlacklisted(franchiseId, phone) {

@@ -42,6 +42,18 @@ export interface HoursEntry {
   close: string; // "HH:MM"
 }
 
+/** Special period (holiday, vacation, event): closed, or open with different hours. Dates are "YYYY-MM-DD", inclusive. */
+export interface DateException {
+  from: string;
+  to: string;
+  label: string;
+  /** Both set = open on these days with these hours; otherwise closed. */
+  open: string | null;
+  close: string | null;
+  /** Sent instead of the default out-of-hours message when someone asks for an attendant. Also {{aviso}}. */
+  message: string;
+}
+
 export interface EngineSettings {
   pauseMinutes: number;
   reactivationWords: string[];
@@ -69,6 +81,7 @@ export interface InboundMessage {
 export interface EngineContext {
   unitName: string;
   hours: HoursEntry[];
+  exceptions?: DateException[];
   timezone: string;
   now: Date;
 }

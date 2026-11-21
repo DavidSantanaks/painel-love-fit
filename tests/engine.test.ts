@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { matchOption, runEngine } from "@/engine/engine";
-import { renderTemplate } from "@/engine/render";
+import { isOpen, renderTemplate } from "@/engine/render";
 import { DEFAULT_HOURS } from "@/engine/seed-content";
 import { INITIAL_STATE, type ContactState } from "@/engine/types";
 import { ctx, NOW, seedSnapshot } from "./helpers";
@@ -105,6 +105,21 @@ describe("engine — human handoff and pause", () => {
     const hours = [{ weekday: 3, open: "06:00", close: "10:00" }];
     const r = runEngine(content, INITIAL_STATE, msg("5"), ctx(NOW, hours));
     expect(r.replies.at(-1)!.text).toContain("fora do horário");
+  });
+
+  it("holiday period closes the unit and sends its own message when calling a human", () => {
+    const hours = [{ weekday: 3, open: "06:00", close: "22:00" }]; // open now (Wed 14:00)
+    const exceptions = [{ from: "2026-11-18", to: "2026-11-18", label: "Feriado", open: null, close: null, message: "Feriado! Voltamos sábado." }];
+    const r = runEngine(content, INITIAL_STATE, msg("5"), { ...ctx(NOW, hours), exceptions });
+    expect(r.replies.at(-1)!.text).toBe("Feriado! Voltamos sábado.");
+  });
+
+  it("special-hours period keeps the unit open inside its window and ignores other dates", () => {
+    const hours = [{ weekday: 3, open: "06:00", close: "10:00" }]; // closed now by weekly hours
+    const open = [{ from: "2026-11-18", to: "2026-11-19", label: "", open: "09:00", close: "18:00", message: "x" }];
+    expect(isOpen(hours, NOW, "America/Sao_Paulo", open)).toBe(true);
+    const other = [{ from: "2026-11-20", to: "2026-11-21", label: "", open: null, close: null, message: "x" }];
+    expect(isOpen([{ weekday: 3, open: "06:00", close: "22:00" }], NOW, "America/Sao_Paulo", other)).toBe(true);
   });
 
   it("store replying from the phone pauses the bot for 1h (RF-03)", () => {

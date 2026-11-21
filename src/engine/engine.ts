@@ -7,7 +7,7 @@
  * engine in src/server/pipeline.ts.
  */
 import { normalizeText } from "./normalize";
-import { isOpen, renderNode, renderTemplate } from "./render";
+import { activeException, isOpen, renderNode, renderTemplate } from "./render";
 import type {
   ContactState,
   ContentSnapshot,
@@ -168,8 +168,8 @@ export function runEngine(
   if (pauseAction) {
     next = { status: "WAITING_HUMAN", pausedUntil: addMinutes(now, pauseAction.minutes), currentNodeKey: next.currentNodeKey };
     handoff = { reason: pauseAction.reason };
-    const closedMsg = settings.outOfHoursMessage.trim();
-    if (closedMsg && !isOpen(ctx.hours, now, ctx.timezone)) {
+    const closedMsg = activeException(ctx.exceptions, now, ctx.timezone)?.message.trim() || settings.outOfHoursMessage.trim();
+    if (closedMsg && !isOpen(ctx.hours, now, ctx.timezone, ctx.exceptions)) {
       replies.push({ type: "TEXT", text: renderTemplate(closedMsg, msg.pushName, ctx), media: null });
     }
   }

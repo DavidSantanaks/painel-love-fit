@@ -1,4 +1,4 @@
-import type { EngineContext, EngineNode, HoursEntry, OutboundMessage } from "./types";
+import type { DateException, EngineContext, EngineNode, HoursEntry, OutboundMessage } from "./types";
 
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -30,8 +30,26 @@ export function greeting(now: Date, timezone: string): string {
   return "Boa noite";
 }
 
-/** True when there are no hours configured (always open) or now falls inside one window. */
-export function isOpen(hours: HoursEntry[], now: Date, timezone: string): boolean {
+/** Local calendar date of `now` as "YYYY-MM-DD". */
+export function localDate(now: Date, timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+/** The special period covering today, if any (the last one registered wins). */
+export function activeException(exceptions: DateException[] | undefined, now: Date, timezone: string): DateException | null {
+  if (!exceptions?.length) return null;
+  const today = localDate(now, timezone);
+  return [...exceptions].reverse().find((e) => e.from <= today && today <= e.to) ?? null;
+}
+
+/** A special period overrides the weekly hours; with no hours configured the unit is always open. */
+export function isOpen(hours: HoursEntry[], now: Date, timezone: string, exceptions?: DateException[]): boolean {
+  const exc = activeException(exceptions, now, timezone);
+  if (exc) {
+    if (!exc.open || !exc.close) return false;
+    const { minutes } = localTime(now, timezone);
+    return minutes >= toMinutes(exc.open) && minutes < toMinutes(exc.close);
+  }
   if (!hours.length) return true;
   const { weekday, minutes } = localTime(now, timezone);
   return hours.some((h) => h.weekday === weekday && minutes >= toMinutes(h.open) && minutes < toMinutes(h.close));
@@ -79,7 +97,7 @@ function firstName(pushName: string): string {
 
 /**
  * Variables: {{nome}} (full WhatsApp name, "Atleta" when empty — same as the old bot), {{primeiro_nome}},
- * {{unidade}}, {{saudacao}}, {{horarios}}, {{expediente}}.
+ * {{unidade}}, {{saudacao}}, {{horarios}}, {{expediente}}, {{aviso}} (message of the holiday/special period running today, empty otherwise).
  */
 export function renderTemplate(template: string, pushName: string, ctx: EngineContext): string {
   const vars: Record<string, string> = {
@@ -88,7 +106,8 @@ export function renderTemplate(template: string, pushName: string, ctx: EngineCo
     unidade: ctx.unitName,
     saudacao: greeting(ctx.now, ctx.timezone),
     horarios: formatHours(ctx.hours),
-    expediente: isOpen(ctx.hours, ctx.now, ctx.timezone) ? "aberto agora" : "fechado agora",
+    expediente: isOpen(ctx.hours, ctx.now, ctx.timezone, ctx.exceptions) ? "aberto agora" : "fechado agora",
+    aviso: activeException(ctx.exceptions, ctx.now, ctx.timezone)?.message.trim() ?? "",
   };
   return template
     .replace(/\{\{\s*(\w+)\s*\}\}/g, (match, name: string) => (name in vars ? vars[name] : match))

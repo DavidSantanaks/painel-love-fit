@@ -2,7 +2,7 @@ import { z } from "zod";
 import { runEngine } from "@/engine/engine";
 import { panelRoute, HttpError } from "@/server/api";
 import { prisma } from "@/server/db";
-import { loadSnapshot, parseHours } from "@/server/deps";
+import { loadSnapshot, parseExceptions, parseHours } from "@/server/deps";
 import { env } from "@/server/env";
 
 const schema = z.object({
@@ -29,7 +29,7 @@ export const POST = panelRoute(async (req, ctx) => {
     content,
     { status: b.state.status, pausedUntil: b.state.pausedUntil ? new Date(b.state.pausedUntil) : null, currentNodeKey: b.state.currentNodeKey },
     { text: b.text, fromMe: b.fromMe, pushName: b.pushName },
-    { unitName: inst?.unitName ?? "Unidade", hours: parseHours(inst?.hours), timezone: env().TIMEZONE, now: new Date() },
+    { unitName: inst?.unitName ?? "Unidade", hours: parseHours(inst?.hours), exceptions: parseExceptions(inst?.exceptions), timezone: env().TIMEZONE, now: new Date() },
   );
   return {
     decision: r.decision,

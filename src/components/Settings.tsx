@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatHours } from "@/engine/render";
 import { api } from "./client";
-import { HoursEditor, type Inst } from "./Instances";
+import { ExceptionsEditor, HoursEditor, type Inst } from "./Instances";
 import { Modal, PageHeader, useAction } from "./ui";
 
 interface S {
@@ -37,6 +37,7 @@ export function Settings({ settings, notify, instances }: { settings: S; notify:
   const [words, setWords] = useState({ r: settings.reactivationWords.join(", "), c: settings.staffCommands.join(", ") });
   const [nf, setNf] = useState({ phone: "", label: "" });
   const [editing, setEditing] = useState<Inst | null>(null);
+  const [exc, setExc] = useState<Inst | null>(null);
   const set = (p: Partial<S>) => setS((x) => ({ ...x, ...p }));
   const split = (v: string) => v.split(",").map((x) => x.trim()).filter(Boolean);
 
@@ -79,7 +80,7 @@ export function Settings({ settings, notify, instances }: { settings: S; notify:
           <div>
             <label className="label">Mensagem fora do expediente</label>
             <textarea className="input min-h-[100px]" value={s.outOfHoursMessage} onChange={(e) => set({ outOfHoursMessage: e.target.value })} />
-            <p className="mt-1 text-xs text-ink-400">Enviada quando o cliente chama atendente fora do horário. Deixe vazio para não enviar.</p>
+            <p className="mt-1 text-xs text-ink-400">Enviada quando o cliente pede atendente com a unidade fechada (pelo horário semanal). Para feriados, use “Feriados / datas especiais” em Horário de funcionamento: lá cada data tem a sua mensagem. Vazio = não envia.</p>
           </div>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1 accent-brand-600" checked={s.respondUnresolvedLid} onChange={(e) => set({ respondUnresolvedLid: e.target.checked })} />
@@ -143,7 +144,10 @@ export function Settings({ settings, notify, instances }: { settings: S; notify:
                 <div key={i.id} className="rounded-xl border border-ink-100 p-3">
                   <div className="mb-1 flex items-center justify-between">
                     <b>{i.unitName}</b>
-                    <button className="text-xs font-semibold text-brand-700 hover:underline" onClick={() => setEditing(i)}>Editar</button>
+                    <span className="flex gap-3">
+                      <button className="text-xs font-semibold text-brand-700 hover:underline" onClick={() => setExc(i)}>Feriados / datas especiais ({i.exceptions.length})</button>
+                      <button className="text-xs font-semibold text-brand-700 hover:underline" onClick={() => setEditing(i)}>Editar</button>
+                    </span>
                   </div>
                   <pre className="whitespace-pre-wrap font-sans text-xs text-ink-500">{formatHours(i.hours)}</pre>
                 </div>
@@ -152,6 +156,9 @@ export function Settings({ settings, notify, instances }: { settings: S; notify:
           </section>
         </div>
       </div>
+      <Modal open={!!exc} onClose={() => setExc(null)} title={`Feriados e datas especiais — ${exc?.unitName ?? ""}`}>
+        {exc && <ExceptionsEditor inst={exc} onSaved={() => { setExc(null); router.refresh(); }} />}
+      </Modal>
       <Modal open={!!editing} onClose={() => setEditing(null)} title={`Horários — ${editing?.unitName ?? ""}`}>
         {editing && <HoursEditor inst={editing} onSaved={() => { setEditing(null); router.refresh(); }} />}
       </Modal>

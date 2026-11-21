@@ -2,11 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import type { HoursEntry } from "@/engine/types";
+import type { DateException, HoursEntry } from "@/engine/types";
 import { api } from "./client";
 import { Empty, Modal, PageHeader, StatusBadge, useAction } from "./ui";
 
-export interface Inst { id: string; name: string; unitName: string; hours: HoursEntry[] }
+export interface Inst { id: string; name: string; unitName: string; hours: HoursEntry[]; exceptions: DateException[] }
 interface Status { state: string; number: string | null; profileName: string | null; webhookEnabled: boolean }
 
 const WEEK = [
@@ -200,5 +200,76 @@ export function Instances({ initial }: { initial: Inst[] }) {
         {editing && <HoursEditor inst={editing} onSaved={() => { setEditing(null); router.refresh(); }} />}
       </Modal>
     </>
+  );
+}
+
+const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
+
+/** Holidays and special periods: closed (or different hours) between two dates, with an optional own message. */
+export function ExceptionsEditor({ inst, onSaved }: { inst: Inst; onSaved: () => void }) {
+  const { busy, run } = useAction();
+  const [list, setList] = useState<DateException[]>(inst.exceptions);
+  const blank = { from: "", to: "", label: "", special: false, open: "09:00", close: "14:00", message: "" };
+  const [f, setF] = useState(blank);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const add = () => {
+    const to = f.to || f.from;
+    if (!f.from) return;
+    if (to < f.from) return void alert("A data final precisa ser igual ou depois da inicial.");
+    const e: DateException = { from: f.from, to, label: f.label.trim(), open: f.special ? f.open : null, close: f.special ? f.close : null, message: f.message.trim() };
+    setList((x) => [...x, e].sort((a, b) => a.from.localeCompare(b.from)));
+    setF(blank);
+  };
+  const save = async () => {
+    if (await run(() => api(`/api/panel/instances/${inst.id}`, "PUT", { exceptions: list }), "Feriados e datas especiais salvos.")) onSaved();
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-ink-500">
+        Nessas datas o bot trata a unidade como <b>fechada</b> (ou com o horário especial que você definir). Quem pedir atendente recebe a mensagem abaixo no lugar da
+        “Mensagem fora do expediente”.
+      </p>
+      {list.length > 0 && (
+        <ul className="divide-y divide-ink-100 rounded-xl border border-ink-100">
+          {list.map((e, i) => (
+            <li key={i} className={`flex items-start justify-between gap-3 p-3 text-sm ${e.to < today ? "opacity-50" : ""}`}>
+              <div>
+                <b>{e.from === e.to ? fmtDate(e.from) : `${fmtDate(e.from)} a ${fmtDate(e.to)}`}</b> {e.label && <span className="text-ink-500">— {e.label}</span>}
+                <div className="text-xs text-ink-500">{e.open ? `Horário especial: ${e.open} às ${e.close}` : "Fechado"}</div>
+                {e.message && <div className="mt-1 whitespace-pre-line text-xs text-ink-400">“{e.message}”</div>}
+              </div>
+              <button className="text-xs font-semibold text-red-600 hover:underline" onClick={() => setList((x) => x.filter((_, j) => j !== i))}>Remover</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="space-y-3 rounded-xl bg-ink-50 p-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className="label">De</label><input type="date" className="input" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} /></div>
+          <div><label className="label">Até (opcional)</label><input type="date" className="input" value={f.to} min={f.from} onChange={(e) => setF({ ...f, to: e.target.value })} /></div>
+        </div>
+        <div><label className="label">Motivo (só para você)</label><input className="input" placeholder="Feriado da Consciência Negra" value={f.label} onChange={(e) => setF({ ...f, label: e.target.value })} /></div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="accent-brand-600" checked={f.special} onChange={(e) => setF({ ...f, special: e.target.checked })} />
+          Abre com horário diferente (em vez de ficar fechado)
+        </label>
+        {f.special && (
+          <div className="flex items-center gap-2 text-sm">
+            <input type="time" className="input w-28" value={f.open} onChange={(e) => setF({ ...f, open: e.target.value })} />
+            <span className="text-ink-400">às</span>
+            <input type="time" className="input w-28" value={f.close} onChange={(e) => setF({ ...f, close: e.target.value })} />
+          </div>
+        )}
+        <div>
+          <label className="label">Mensagem para quem pedir atendente</label>
+          <textarea className="input min-h-[80px]" placeholder="Ontem foi feriado 🙏 Nosso atendimento volta no sábado, e respondemos você assim que abrir." value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} />
+          <p className="mt-1 text-xs text-ink-400">Vazio = usa a mensagem padrão de fora do expediente. Também vale como {"{{aviso}}"} nas telas.</p>
+        </div>
+        <button className="btn-ghost w-full" disabled={!f.from} onClick={add}>+ Adicionar à lista</button>
+      </div>
+      <button className="btn-primary w-full" disabled={busy} onClick={save}>Salvar</button>
+    </div>
   );
 }

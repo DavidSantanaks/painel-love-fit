@@ -15,6 +15,7 @@ const NAV = [
   { href: "/painel/instancias", label: "WhatsApp", icon: "📱", admin: true },
   { href: "/painel/blacklist", label: "Blacklist", icon: "⛔", admin: true },
   { href: "/painel/log", label: "Log e auditoria", icon: "≡", admin: false },
+  { href: "/painel/novidades", label: "Novidades", icon: "✦", admin: false },
 ];
 
 interface Props {

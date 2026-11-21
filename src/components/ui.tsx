@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 type Toast = { id: number; kind: "ok" | "err"; text: string };
 const ToastCtx = createContext<(kind: Toast["kind"], text: string) => void>(() => {});
@@ -69,17 +69,26 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
 }
 
 export function Modal({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
   if (!open) return null;
+  // The overlay scrolls, so tall content (hours editor, QR code) never pushes the close button off-screen.
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink-950/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="card w-full max-w-md animate-fade-up p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">{title}</h2>
-          <button className="text-ink-400 hover:text-ink-700" onClick={onClose} aria-label="Fechar">
-            ✕
-          </button>
+    <div className="fixed inset-0 z-40 overflow-y-auto bg-ink-950/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex min-h-full items-start justify-center p-4 sm:items-center">
+        <div className="card w-full max-w-md animate-fade-up p-6" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+          <div className="sticky top-0 -mx-6 -mt-6 mb-4 flex items-center justify-between gap-3 rounded-t-2xl bg-white px-6 pb-3 pt-6">
+            <h2 className="text-lg font-bold">{title}</h2>
+            <button className="btn-ghost shrink-0 px-3 py-1.5" onClick={onClose} aria-label="Fechar">
+              ✕ Fechar
+            </button>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
     </div>
   );

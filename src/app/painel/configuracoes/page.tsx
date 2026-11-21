@@ -2,7 +2,7 @@ import { Settings } from "@/components/Settings";
 import { formatPhone } from "@/engine/normalize";
 import { requirePage } from "@/server/auth";
 import { prisma } from "@/server/db";
-import { parseHours } from "@/server/deps";
+import { parseExceptions, parseHours } from "@/server/deps";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ export default async function ConfigPage() {
         respondUnresolvedLid: s.respondUnresolvedLid,
       }}
       notify={notify.map((n) => ({ id: n.id, phone: formatPhone(n.phone), label: n.label }))}
-      instances={instances.map((i) => ({ id: i.id, name: i.name, unitName: i.unitName, hours: parseHours(i.hours) }))}
+      instances={instances.map((i) => ({ id: i.id, name: i.name, unitName: i.unitName, hours: parseHours(i.hours), exceptions: parseExceptions(i.exceptions) }))}
     />
   );
 }

@@ -2,7 +2,7 @@
  * Dependency ports used by the pipeline and the sender.
  * Real implementations live in deps.ts (Prisma + Redis + Evolution); tests use in-memory fakes.
  */
-import type { ContactState, ContentSnapshot, HoursEntry, OutboundMessage } from "@/engine/types";
+import type { ContactState, ContentSnapshot, DateException, HoursEntry, OutboundMessage } from "@/engine/types";
 
 export interface InstanceInfo {
   id: string;
@@ -10,6 +10,7 @@ export interface InstanceInfo {
   name: string;
   unitName: string;
   hours: HoursEntry[];
+  exceptions?: DateException[];
 }
 
 export interface RuntimeSettings {

@@ -104,6 +104,8 @@ model Instance {
   unitName    String
   /// [{ weekday: 0-6, open: "06:00", close: "22:00" }] — empty array = no hours configured
   hours       Json     @default("[]")
+  /// [{ from: "2026-11-20", to: "2026-11-20", label, open: "09:00"|null, close, message }] — holidays / special periods
+  exceptions  Json     @default("[]")
   createdAt   DateTime @default(now())
 
   contacts    Contact[]
